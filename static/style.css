@@ -1,0 +1,198 @@
+/*
+ * Module: static/style.css
+ *
+ * Description:
+ *     Central stylesheet for the Arbitron Systems single-page
+ *     application. The file defines color variables, layout rules
+ *     for the sidebar, chat panel, dashboard, draggable widget
+ *     windows, and modal dialogs. The design emphasizes high
+ *     contrast, monospaced typography, and a compact interface
+ *     suitable for a trading/analytic console.
+ *
+ * Usage:
+ *     This stylesheet is loaded by the SPA HTML shell and assumes
+ *     the existence of elements with ids and classes such as
+ *     `#app`, `.sidebar`, `.chat-panel`, `.dashboard-panel`, and
+ *     `.chart-card`.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
+
+html {
+    box-sizing: border-box;
+}
+
+*, *:before, *:after {
+    box-sizing: inherit;
+}
+
+:root {
+    --bg-color: #0d0d0d;
+    --panel-bg: #141414;
+    --border-color: #333333;
+    --text-primary: #e0e0e0;
+    --text-secondary: #808080;
+    --accent-color: #00A3E0;
+    --user-color: #00ff9d;
+    --ai-color: #00A3E0;
+    --danger: #cf6679;
+}
+
+/* Layout reset: enforce sharp/monospace aesthetic */
+* { border-radius: 0 !important; }
+
+/* Page and root layout */
+body {
+    margin: 0; background-color: var(--bg-color); color: var(--text-primary);
+    font-family: 'Roboto Mono', monospace; font-size: 13px; overflow: hidden;
+    user-select: none;
+}
+
+#app { display: flex; height: 100vh; width: 100vw; }
+
+/* Sidebar: compact vertical navigation */
+.sidebar {
+    width: 50px; background-color: #0a0a0a; border-right: 1px solid var(--border-color);
+    display: flex; flex-direction: column; align-items: center; padding: 15px 0; gap: 15px; z-index: 1000;
+}
+.nav-item {
+    width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;
+    cursor: pointer; color: #666; transition: 0.2s;
+}
+.nav-item:hover { color: #fff; background: #222; }
+
+/* Chat history items (session list) */
+.history-item {
+    cursor: pointer; padding: 10px 0; margin: 5px 0; width: 40px;
+    display: flex; justify-content: center; align-items: center;
+    position: relative; border: 1px solid transparent;
+}
+.history-item:hover { background: #1a1a1a; border-color: #333; }
+.history-item.active { border-left: 3px solid var(--accent-color); background: rgba(0, 163, 224, 0.1); }
+
+/* Delete button for history items (shown on hover) */
+.history-item .del-btn {
+    display: none; position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; 
+    background: #000; border: 1px solid #333; color: var(--danger); z-index: 10;
+    align-items: center; justify-content: center;
+}
+.history-item:hover .del-btn { display: flex; }
+.history-item .del-btn:hover { background: var(--danger); color: #000; }
+
+/* Column resizer dividing sidebar and main area */
+.resizer {
+    width: 4px; background: #111; border-left: 1px solid #333; border-right: 1px solid #333;
+    cursor: col-resize; z-index: 600; transition: background 0.2s;
+}
+.resizer:hover { background: var(--accent-color); }
+
+/* Chat panel (left docked): messages and input */
+.chat-panel {
+    width: 350px; min-width: 250px; max-width: 800px;
+    display: flex; flex-direction: column; background-color: var(--panel-bg);
+    z-index: 500; flex-shrink: 0;
+}
+.chat-header { height: 40px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; background: #1a1a1a; font-weight: 700; }
+.chat-container { flex-grow: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+.message { display: flex; flex-direction: column; gap: 4px; }
+.msg-header { font-size: 11px; opacity: 0.7; }
+.user .msg-header { color: var(--user-color); }
+.assistant .msg-header { color: var(--ai-color); }
+.msg-content { color: #ddd; word-wrap: break-word; user-select: text; }
+.input-zone { padding: 10px; background: #1a1a1a; border-top: 1px solid var(--border-color); }
+.input-bar { display: flex; align-items: center; background: #000; border: 1px solid var(--border-color); padding: 8px 10px; }
+.text-field { flex-grow: 1; background: transparent; border: none; color: white; outline: none; font-family: inherit; }
+
+/* Desktop/dashboard area for widgets and the 3D window */
+.dashboard-panel {
+    flex-grow: 1; position: relative; background-color: #080808;
+    background-image: radial-gradient(#1a1a1a 1px, transparent 1px); background-size: 20px 20px;
+    overflow: hidden;
+}
+
+/* Draggable chart-card windows (widgets) */
+.chart-card {
+    position: absolute; background-color: var(--bg-color); border: 1px solid var(--border-color);
+    display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    min-width: 300px; min-height: 200px; width: 500px; height: 350px;
+    resize: both; overflow: hidden; box-sizing: border-box;
+    transition: opacity 0.2s ease;
+}
+.chart-card.is-resizing {opacity: 0.6;}
+.chart-card.active-window { border-color: var(--accent-color); z-index: 100; }
+.chart-title-bar {
+    background-color: #1a1a1a; border-bottom: 1px solid var(--border-color); padding: 8px 10px;
+    font-size: 11px; font-weight: 700; color: var(--text-primary); display: flex;
+    justify-content: space-between; align-items: center; min-height: 36px; cursor: grab;
+}
+.chart-title-bar:active { cursor: grabbing; background: #222; }
+
+/* Window close/remove button: visually subtle, shows danger on hover */
+.chart-remove-btn { 
+    cursor: pointer; 
+    padding: 0 5px; 
+    color: #888;
+    display: flex; 
+    align-items: center;
+}
+.chart-remove-btn:hover { color: var(--danger); }
+
+.tv-widget-container { flex: 1 1 auto; width: 100%; height: calc(100% - 30px); background: #000; pointer-events: auto; }
+.chart-card.is-dragging .tv-widget-container { pointer-events: none; }
+.chart-card.is-resizing .tv-widget-container { pointer-events: none !important; opacity: 0.8; }
+/* While a window is being dragged, make other windows inert */
+body.window-dragging .chart-card:not(.is-dragging) {
+    pointer-events: none;
+    opacity: 0.6;
+    filter: saturate(0.8) blur(0.2px);
+}
+/* Resize handle that sits above inner app content */
+.window-resize-handle {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    width: 18px;
+    height: 18px;
+    z-index: 1200;
+    cursor: se-resize;
+    background: rgba(255,255,255,0.02);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: auto;
+}
+.window-resize-handle:after {
+    content: '';
+    width: 10px; height: 10px;
+    background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.12) 50%);
+    transform: rotate(45deg);
+}
+/* SVG icon defaults and fixes for unwanted artifacts */
+.icon-svg { 
+    width: 24px; height: 24px; fill: none; stroke: currentColor; 
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; 
+    display: block; overflow: visible;
+}
+
+/* Ensure SVGs inside nav items and title bars are not clipped */
+.nav-item svg, .chart-title-bar svg { display: block; overflow: visible; }
+.chart-title-bar svg { margin-top: 2px; margin-bottom: 2px; }
+.del-icon-svg { 
+    width: 12px; 
+    height: 12px; 
+    fill: none; /* remove unwanted filled artifacts */
+    stroke: currentColor; /* use currentColor for stroke visibility */
+    stroke-width: 2; 
+    stroke-linecap: round; 
+    stroke-linejoin: round; 
+}
+
+/* Modal overlays and controls */
+.modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(2px); }
+.modal-body { background: #111; border: 1px solid var(--border-color); padding: 20px; width: 400px; box-sizing: border-box; } .modal-body input { width: 100%; background: #000; border: 1px solid var(--border-color); color: white; padding: 8px 10px; margin: 10px 0 15px 0; outline: none; font-family: inherit; box-sizing: border-box; } 
+.modal-body input:focus { border-color: var(--accent-color); }
+.modal-btn { background: var(--border-color); color: white; border: none; padding: 8px 15px; cursor: pointer; margin-top: 10px; width: 100%; }
+.modal-btn:hover { background: var(--accent-color); }
+
+/* Scrollbar styling for WebKit-based browsers */
+::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #333; }
+
