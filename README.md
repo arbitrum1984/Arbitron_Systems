@@ -1,5 +1,7 @@
 **Arbitron Systems (Terminal) / ARBI OS**
 
+![Main Dashboard](screenshots/screenshot1.png)
+
 Welcome to my AS Terminal!
 | Category | Component / Stack | Technical Description |
 | :--- | :--- | :--- |
@@ -33,3 +35,4 @@ Email -> arbitronsystems [at] outlook.com
 BMC -> [buymeacoffee.com/arbitrum1984](https://buymeacoffee.com/arbitrum1984)
 
 Thank You!
+
