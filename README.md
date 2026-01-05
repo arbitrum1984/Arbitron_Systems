@@ -24,7 +24,15 @@ I’m 16, I’m constantly learning, and yes, I use AI to help optimize my workf
 ---
 ### **Quick Start:**
 
-1. Create and Activate Virtual Environment
+
+1. Clone the Repository
+First, grab the source code:
+```bash
+git clone https://github.com/arbitrum1984/Arbitron_Systems.git
+cd Arbitron_Systems
+```
+
+2. Create and Activate Virtual Environment
 
 On Windows:
 ```bash
@@ -36,18 +44,18 @@ On Linux / macOS:
 python3 -m venv venv
 source venv/bin/activate
 ```
-2. Install Requirements
+3. Install Requirements
 Once the environment is activated, install all necessary libraries:
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
-3. Configure Environment Variables
+4. Configure Environment Variables
 Create a `.env` file in the root directory and add your API keys. **Do not share this file!** 
 ```env
 GEMINI_API_KEY=your_google_gemini_key
 ```
-4. Launch the Terminal
+5. Launch the Terminal
 Run the main entry point of the application:
 ```bash
 python launch.py
@@ -67,5 +75,6 @@ Email -> arbitronsystems [at] outlook.com
 BMC -> [buymeacoffee.com/arbitrum1984](https://buymeacoffee.com/arbitrum1984)
 
 Thank You!
+
 
 
