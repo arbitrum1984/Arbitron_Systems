@@ -16,7 +16,7 @@
 | **Visualization** | Plotly.js / TradingView | 3D Volatility surfaces and iframe integration for technical analysis. |
 | **Infrastructure** | Pydantic / Settings | Data validation and environment-based configuration management. |
 
-I’ve always loved the concept of an all-in-one terminal that handles everything from raw data to advanced modeling like Gaussian distributions. What started as a basic AI wrapper has evolved into a full-scale "Bloomberg Terminal" clone with a built-in personal assistant. The backend currently handles calculations for sentiment analysis, trends, and price data. I'm currently using TradingView widgets, but I’m looking to develop my own data-driven visualization system soon. The next big step is integrating Qlib to make the terminal’s output even more accurate and professional. I’m 16, I’m constantly learning, and yes, I use AI to help optimize my workflow and architecture. Now, I’m looking for a team to help me scale this project.
+The next big step is integrating Qlib to make the terminal’s output even more accurate and professional. I’m 16, I’m constantly learning, and yes, I use AI to help optimize my workflow and architecture. Now, I’m looking for a team to help me scale this project.
 
 ---
 
@@ -77,3 +77,4 @@ python main.py
 ```
 
 ENJOY
+
