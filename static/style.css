@@ -1,30 +1,19 @@
 /*
- * Module: static/style.css
- *
- * Description:
- *     Central stylesheet for the Arbitron Systems single-page
- *     application. The file defines color variables, layout rules
- *     for the sidebar, chat panel, dashboard, draggable widget
- *     windows, and modal dialogs. The design emphasizes high
- *     contrast, monospaced typography, and a compact interface
- *     suitable for a trading/analytic console.
- *
- * Usage:
- *     This stylesheet is loaded by the SPA HTML shell and assumes
- *     the existence of elements with ids and classes such as
- *     `#app`, `.sidebar`, `.chat-panel`, `.dashboard-panel`, and
- *     `.chart-card`.
- */
+    ARBITRON STYLESHEET
+    -------------------
 
+    This stylesheet contains the primary presentation rules for the
+    Arbitron Systems single-page client. It defines a compact,
+    monospace-based UI, floating window chrome, widget behaviours
+    (dragging/resizing), and several domain-specific panels such as
+    the INTEL feed, Pizza tracker, and Quant model window.
+
+    Section comments describe the purpose of grouped rules and are
+    written in clear academic English. Behavioural notes (for
+    example the iframe "shield" during drag operations) are left in
+    comments to aid future maintainers.
+*/
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
-
-html {
-    box-sizing: border-box;
-}
-
-*, *:before, *:after {
-    box-sizing: inherit;
-}
 
 :root {
     --bg-color: #0d0d0d;
@@ -36,12 +25,11 @@ html {
     --user-color: #00ff9d;
     --ai-color: #00A3E0;
     --danger: #cf6679;
+    --intel-bg: #050505;
 }
 
-/* Layout reset: enforce sharp/monospace aesthetic */
-* { border-radius: 0 !important; }
+* { border-radius: 0 !important; box-sizing: border-box; }
 
-/* Page and root layout */
 body {
     margin: 0; background-color: var(--bg-color); color: var(--text-primary);
     font-family: 'Roboto Mono', monospace; font-size: 13px; overflow: hidden;
@@ -50,7 +38,6 @@ body {
 
 #app { display: flex; height: 100vh; width: 100vw; }
 
-/* Sidebar: compact vertical navigation */
 .sidebar {
     width: 50px; background-color: #0a0a0a; border-right: 1px solid var(--border-color);
     display: flex; flex-direction: column; align-items: center; padding: 15px 0; gap: 15px; z-index: 1000;
@@ -61,37 +48,15 @@ body {
 }
 .nav-item:hover { color: #fff; background: #222; }
 
-/* Chat history items (session list) */
-.history-item {
-    cursor: pointer; padding: 10px 0; margin: 5px 0; width: 40px;
-    display: flex; justify-content: center; align-items: center;
-    position: relative; border: 1px solid transparent;
-}
-.history-item:hover { background: #1a1a1a; border-color: #333; }
+.history-list { flex-grow: 1; overflow-y: auto; width: 100%; display: flex; flex-direction: column; align-items: center; border-top: 1px solid #333; border-bottom: 1px solid #333; padding: 10px 0; }
+.history-item { cursor: pointer; padding: 10px 0; margin: 5px 0; width: 40px; display: flex; justify-content: center; align-items: center; position: relative; border: 1px solid transparent; }
 .history-item.active { border-left: 3px solid var(--accent-color); background: rgba(0, 163, 224, 0.1); }
-
-/* Delete button for history items (shown on hover) */
-.history-item .del-btn {
-    display: none; position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; 
-    background: #000; border: 1px solid #333; color: var(--danger); z-index: 10;
-    align-items: center; justify-content: center;
-}
+.history-item .del-btn { display: none; position: absolute; top: -2px; right: -2px; width: 16px; height: 16px; background: #000; border: 1px solid #333; color: var(--danger); z-index: 10; align-items: center; justify-content: center; }
 .history-item:hover .del-btn { display: flex; }
-.history-item .del-btn:hover { background: var(--danger); color: #000; }
 
-/* Column resizer dividing sidebar and main area */
-.resizer {
-    width: 4px; background: #111; border-left: 1px solid #333; border-right: 1px solid #333;
-    cursor: col-resize; z-index: 600; transition: background 0.2s;
-}
-.resizer:hover { background: var(--accent-color); }
+.resizer { width: 4px; background: #111; border-left: 1px solid #333; border-right: 1px solid #333; cursor: col-resize; z-index: 600; }
 
-/* Chat panel (left docked): messages and input */
-.chat-panel {
-    width: 350px; min-width: 250px; max-width: 800px;
-    display: flex; flex-direction: column; background-color: var(--panel-bg);
-    z-index: 500; flex-shrink: 0;
-}
+.chat-panel { width: 350px; min-width: 250px; display: flex; flex-direction: column; background-color: var(--panel-bg); z-index: 500; flex-shrink: 0; }
 .chat-header { height: 40px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; background: #1a1a1a; font-weight: 700; }
 .chat-container { flex-grow: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
 .message { display: flex; flex-direction: column; gap: 4px; }
@@ -99,100 +64,320 @@ body {
 .user .msg-header { color: var(--user-color); }
 .assistant .msg-header { color: var(--ai-color); }
 .msg-content { color: #ddd; word-wrap: break-word; user-select: text; }
+
 .input-zone { padding: 10px; background: #1a1a1a; border-top: 1px solid var(--border-color); }
 .input-bar { display: flex; align-items: center; background: #000; border: 1px solid var(--border-color); padding: 8px 10px; }
 .text-field { flex-grow: 1; background: transparent; border: none; color: white; outline: none; font-family: inherit; }
 
-/* Desktop/dashboard area for widgets and the 3D window */
-.dashboard-panel {
-    flex-grow: 1; position: relative; background-color: #080808;
-    background-image: radial-gradient(#1a1a1a 1px, transparent 1px); background-size: 20px 20px;
-    overflow: hidden;
-}
+.dashboard-panel { flex-grow: 1; position: relative; background-color: #080808; background-image: radial-gradient(#1a1a1a 1px, transparent 1px); background-size: 20px 20px; overflow: hidden; }
 
-/* Draggable chart-card windows (widgets) */
+/* --- Windows and Widgets --- */
+
+/* Floating window (chart card) base styles */
 .chart-card {
-    position: absolute; background-color: var(--bg-color); border: 1px solid var(--border-color);
-    display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    min-width: 300px; min-height: 200px; width: 500px; height: 350px;
-    resize: both; overflow: hidden; box-sizing: border-box;
-    transition: opacity 0.2s ease;
-}
-.chart-card.is-resizing {opacity: 0.6;}
-.chart-card.active-window { border-color: var(--accent-color); z-index: 100; }
-.chart-title-bar {
-    background-color: #1a1a1a; border-bottom: 1px solid var(--border-color); padding: 8px 10px;
-    font-size: 11px; font-weight: 700; color: var(--text-primary); display: flex;
-    justify-content: space-between; align-items: center; min-height: 36px; cursor: grab;
-}
-.chart-title-bar:active { cursor: grabbing; background: #222; }
-
-/* Window close/remove button: visually subtle, shows danger on hover */
-.chart-remove-btn { 
-    cursor: pointer; 
-    padding: 0 5px; 
-    color: #888;
+    position: absolute; 
+    background-color: var(--bg-color); 
+    border: 1px solid var(--border-color);
     display: flex; 
-    align-items: center;
+    flex-direction: column; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    min-width: 200px; 
+    min-height: 150px; 
+    overflow: hidden; 
+    box-sizing: border-box;
+    transition: opacity 0.2s ease, filter 0.2s ease; /* Smooth transition for blur/opacity effects */
 }
-.chart-remove-btn:hover { color: var(--danger); }
 
-.tv-widget-container { flex: 1 1 auto; width: 100%; height: calc(100% - 30px); background: #000; pointer-events: auto; }
-.chart-card.is-dragging .tv-widget-container { pointer-events: none; }
-.chart-card.is-resizing .tv-widget-container { pointer-events: none !important; opacity: 0.8; }
-/* While a window is being dragged, make other windows inert */
+/* When dragging one window, other windows are blurred/reduced opacity */
 body.window-dragging .chart-card:not(.is-dragging) {
     pointer-events: none;
     opacity: 0.6;
     filter: saturate(0.8) blur(0.2px);
 }
-/* Resize handle that sits above inner app content */
+
+/* Active window highlight */
+.chart-card.active-window { 
+    border-color: var(--accent-color); 
+    z-index: 100; 
+}
+
+/* Window title bar */
+.chart-title-bar {
+    background-color: #1a1a1a; 
+    border-bottom: 1px solid var(--border-color); 
+    padding: 8px 10px;
+    font-size: 11px; 
+    font-weight: 700; 
+    color: var(--text-primary); 
+    display: flex;
+    justify-content: space-between; 
+    align-items: center; 
+    min-height: 36px; 
+    cursor: grab;
+    user-select: none;
+}
+.chart-title-bar:active { cursor: grabbing; background: #222; }
+
+/* Close/remove button */
+.chart-remove-btn { 
+    cursor: pointer; 
+    padding: 0 5px; 
+    color: #888; 
+    display: flex; 
+    align-items: center;
+}
+.chart-remove-btn:hover { color: var(--danger); }
+
+/* TradingView container: pointer events are disabled during drag/resize to avoid iframe capture */
+.tv-widget-container { 
+    flex: 1 1 auto; 
+    width: 100%; 
+    height: calc(100% - 36px); 
+    background: #000; 
+    pointer-events: auto; 
+}
+.chart-card.is-dragging .tv-widget-container,
+.chart-card.is-resizing .tv-widget-container { 
+    pointer-events: none !important; 
+}
+
+/* --- Quant Model and Specific Elements --- */
+
+/* Centering overlay for the INIT MODEL button */
+.init-btn-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    background: rgba(0,0,0,0.5); 
+    z-index: 10;
+    pointer-events: auto; 
+}
+
+/* Compact button styling for the Quant window overlay */
+.init-btn-overlay .modal-btn {
+    width: auto; 
+    padding: 10px 20px;
+    border: 1px solid var(--accent-color);
+}
+
+/* Select dropdown in window title bar */
+.chart-title-bar select {
+    background: #1a1a1a;
+    color: #e0e0e0;
+    border: 1px solid #333;
+    font-family: inherit;
+    font-size: 10px;
+    padding: 2px 5px;
+    margin-left: 10px;
+    outline: none;
+    cursor: pointer;
+}
+.chart-title-bar select:hover {
+    border-color: #666;
+}
+
+/* --- Resize Handle --- */
+/* Minimal, low-contrast handle used to resize floating windows */
 .window-resize-handle {
     position: absolute;
-    right: 6px;
-    bottom: 6px;
-    width: 18px;
-    height: 18px;
+    right: 0;
+    bottom: 0;
+    width: 20px;
+    height: 20px;
     z-index: 1200;
-    cursor: se-resize;
-    background: rgba(255,255,255,0.02);
+    cursor: nwse-resize; /* Курсор по диагонали */
+    background: rgba(255,255,255,0.02); /* Еле заметная подложка */
     border-radius: 2px;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
     pointer-events: auto;
 }
+
+/* Window resize handle */
 .window-resize-handle:after {
     content: '';
-    width: 10px; height: 10px;
-    background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.12) 50%);
-    transform: rotate(45deg);
+    position: absolute;
+    bottom: 3px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.3) 50%);
 }
-/* SVG icon defaults and fixes for unwanted artifacts */
-.icon-svg { 
-    width: 24px; height: 24px; fill: none; stroke: currentColor; 
-    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; 
-    display: block; overflow: visible;
-}
-
-/* Ensure SVGs inside nav items and title bars are not clipped */
-.nav-item svg, .chart-title-bar svg { display: block; overflow: visible; }
-.chart-title-bar svg { margin-top: 2px; margin-bottom: 2px; }
-.del-icon-svg { 
-    width: 12px; 
-    height: 12px; 
-    fill: none; /* remove unwanted filled artifacts */
-    stroke: currentColor; /* use currentColor for stroke visibility */
-    stroke-width: 2; 
-    stroke-linecap: round; 
-    stroke-linejoin: round; 
+/* Brighten the visual indicator on hover */
+.window-resize-handle:hover:after {
+    background: linear-gradient(135deg, transparent 50%, var(--accent-color) 50%);
 }
 
-/* Modal overlays and controls */
-.modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(2px); }
-.modal-body { background: #111; border: 1px solid var(--border-color); padding: 20px; width: 400px; box-sizing: border-box; } .modal-body input { width: 100%; background: #000; border: 1px solid var(--border-color); color: white; padding: 8px 10px; margin: 10px 0 15px 0; outline: none; font-family: inherit; box-sizing: border-box; } 
+/* --- Intel Feed (red-themed window) --- */
+.intel-feed { flex: 1; overflow-y: auto; background: var(--intel-bg); padding: 10px; }
+.intel-item { border-bottom: 1px solid #1a1a1a; padding: 10px 0; font-family: 'Roboto Mono', monospace; }
+.intel-time { font-size: 9px; color: #666; margin-bottom: 4px; }
+.scanning-msg { opacity: 0.3; text-align: center; margin-top: 20px; }
+
+/* --- Pizza Index (occupancy tracker) --- */
+.pizza-body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #000; position: relative; }
+.pizza-value { font-size: 36px; font-weight: 700; z-index: 1; }
+.pizza-status { font-size: 9px; opacity: 0.6; z-index: 1; letter-spacing: 1px; }
+.pizza-alert { position: absolute; width: 100%; height: 100%; background: rgba(207, 102, 121, 0.1); animation: pulse-red 2s infinite; }
+
+@keyframes pulse-red {
+    0% { opacity: 0.3; }
+    50% { opacity: 0.7; }
+    100% { opacity: 0.3; }
+}
+
+/* --- Pizza Tracker Styles --- */
+.pizza-feed {
+    padding: 10px;
+    overflow-y: auto;
+    height: 100%;
+    background: #050505;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.pizza-card {
+    background: #0f0f0f;
+    border: 1px solid #222;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pc-header { display: flex; justify-content: space-between; align-items: center; }
+.pc-name { font-size: 10px; font-weight: 700; color: #ccc; }
+
+.pc-badge {
+    font-size: 9px; padding: 2px 6px; border: 1px solid #444; color: #888;
+}
+.pc-badge.SPIKE { border-color: var(--danger); color: var(--danger); background: rgba(207, 102, 121, 0.1); }
+.pc-badge.NOMINAL { border-color: var(--user-color); color: var(--user-color); }
+.pc-badge.QUIET { border-color: var(--accent-color); color: var(--accent-color); }
+
+/* Small bar-chart used to depict 24-hour occupancy */
+.pc-chart {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    height: 40px; border-bottom: 1px solid #222; padding-bottom: 2px;
+}
+.pc-bar-wrapper {
+    width: 3px; height: 100%; position: relative;
+    display: flex; align-items: flex-end;
+}
+.pc-bar {
+    width: 100%; background: #333; opacity: 0.5;
+}
+/* Live data */
+.pc-bar-live {
+    position: absolute; bottom: 0; left: 0; width: 100%;
+    background: #fff; z-index: 2; opacity: 0.8;
+}
+.pc-bar-live.SPIKE { background: var(--danger); box-shadow: 0 0 5px var(--danger); }
+.pc-bar-live.QUIET { background: var(--accent-color); }
+
+.pc-footer { font-size: 9px; margin-top: 2px; }
+
+/* --- Utility styles --- */
+.tv-widget-container { flex: 1; width: 100%; background: #000; }
+.icon-svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+.del-icon-svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; }
+
+/* --- Modal windows and control elements --- */
+
+.modal-mask { 
+    position: fixed; top: 0; left: 0; 
+    width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.8); 
+    display: flex; justify-content: center; align-items: center; 
+    z-index: 2000; 
+    backdrop-filter: blur(2px); /* Background blur for modal overlays */
+}
+
+.modal-body { 
+    background: #111; 
+    border: 1px solid var(--border-color); 
+    padding: 20px; 
+    width: 400px; 
+    box-sizing: border-box; 
+}
+
+/* Text field styles inside modals (prevent white background) */
+.modal-body input { 
+    width: 100%; 
+    background: #000; 
+    border: 1px solid var(--border-color); 
+    color: white; 
+    padding: 8px 10px; 
+    margin: 10px 0 15px 0; 
+    outline: none; 
+    font-family: inherit; 
+    box-sizing: border-box; 
+} 
 .modal-body input:focus { border-color: var(--accent-color); }
-.modal-btn { background: var(--border-color); color: white; border: none; padding: 8px 15px; cursor: pointer; margin-top: 10px; width: 100%; }
-.modal-btn:hover { background: var(--accent-color); }
 
-/* Scrollbar styling for WebKit-based browsers */
-::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #333; }
+/* Button styles (Init Model, Close, etc.) */
+.modal-btn { 
+    background: var(--border-color); 
+    color: white; 
+    border: none; 
+    padding: 8px 15px; 
+    cursor: pointer; 
+    margin-top: 10px; 
+    width: 100%; 
+    font-family: 'Roboto Mono', monospace;
+    font-weight: bold;
+    transition: 0.2s;
+}
+.modal-btn:hover { background: var(--accent-color); color: #000; }
 
+/* Favorites list inside modal */
+.modal-body div[style*="justify-content:space-between"] {
+    padding: 5px 0;
+    border-bottom: 1px solid #222;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* --- Iframe Shield Fix --- */
+
+/*
+    1. Make the widget container positioned so an overlay pseudo-
+        element can be sized relative to it.
+*/
+.tv-widget-container {
+    position: relative; 
+}
+
+/*
+    2. Create an invisible "shield" pseudo-element that sits above
+        embedded iframes. It is hidden by default and enabled during
+        window drag/resize operations to prevent cursor capture by
+        the iframe content.
+*/
+.tv-widget-container::after {
+    content: "";
+    position: absolute;
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    z-index: 50; /* Лежит выше, чем iframe внутри */
+    background: transparent; /* Он невидимый */
+    display: none; 
+}
+
+/*
+    3. The shield is activated by toggling `body.window-dragging`.
+        When active the pseudo-element intercepts pointer events so
+        that dragging and resizing are not interrupted by iframe
+        internals.
+*/
+body.window-dragging .tv-widget-container::after {
+    display: block;
+}
+
+/* --- End of core stylesheet --- */

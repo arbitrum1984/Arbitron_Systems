@@ -9,6 +9,7 @@ metadata used throughout the codebase.
 """
 
 import os
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 
@@ -35,6 +36,12 @@ class Settings(BaseSettings):
     # named GEMINI_API_KEY or from an `.env` file.
     GEMINI_API_KEY: str
 
+    APIFY_API_KEY: Optional[str] = None
+    SERPAPI_API_KEY: Optional[str] = None
+    RSS_FEEDS: Optional[str] = ""
+
+    RUN_BACKGROUND_TASKS: bool = False
+    
     # Filesystem and model configuration
     MODEL_PATH: str = "data/model.pt"
     DB_PATH: str = "data/arbitron.sqlite"

@@ -1,29 +1,18 @@
 <!DOCTYPE html>
-<!--
-Module: static/index.html
-
-Description:
-    Main single-page application HTML shell for Arbitron Systems v2.0.
-    This document provides the structural layout and markup for the
-    client application: a persistent sidebar with session navigation
-    and controls, a central chat panel, a resizable desktop area for
-    trading widgets and a 3D quant window, and modal dialogs for
-    voice input, favorites (watchlist), and settings.
-
-Usage:
-    The page depends on several third-party client libraries (Vue,
-    Plotly, marked, TradingView) and loads the application bundle at
-    `/static/app.js`. Ensure the web server serves the `/static`
-    directory when running the backend.
-
-Notes:
-    The inline comments that follow describe major sections for
-    maintainers and aim to aid future extension and testing. This
-    header is intentionally descriptive and written in a formal,
-    academic style to assist documentation generation and review.
--->
 <html lang="en">
 <head>
+    <!--
+        ARBITRON SPA - index.html
+
+        This document is the single-page application's static shell.
+        It contains the primary layout regions (sidebar, chat panel,
+        desktop area with floating windows), imports runtime
+        libraries (Vue, Plotly, TradingView), and mounts the client
+        application script located at `/static/app.js`.
+
+        Section-level comments describe the purpose of major DOM
+        regions; behavioural details live in the client script.
+    -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ARBI OS v2.0</title>
@@ -35,127 +24,147 @@ Notes:
 </head>
 <body>
     <div id="app">
-        
-        <!--
-            Sidebar
-
-            Purpose:
-                Provides primary navigation and quick-access controls
-                for the application: create new chat sessions, view
-                session history, and access auxiliary panes (voice,
-                favorites, 3D window, settings).
-
-            Notes:
-                - The visual icons are implemented as inline SVG for
-                  portability. Event handlers are bound via Vue
-                  directives in `/static/app.js`.
-        -->
-        <!-- SIDEBAR -->
+                <!-- **Sidebar**: primary navigation and session selector.
+                         - New session, session history, voice toggle, intel feed,
+                             favorites, 3D visualization and settings controls live here. -->
         <div class="sidebar">
             <img src="/static/assets/logo.ico" style="width: 32px; height: 32px; margin-bottom: 20px;">
             <div class="nav-item" @click="createNewChat" title="New Session">
                 <svg class="icon-svg" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </div>
-            <!-- HISTORY -->
-            <div class="history-list" style="flex-grow: 1; overflow-y: auto; width: 100%; display: flex; flex-direction: column; align-items: center; border-top: 1px solid #333; border-bottom: 1px solid #333; padding: 10px 0;">
-                <div v-for="chat in chatSessions" :key="chat.id" class="history-item" :class="{ active: chat.id === currentChatId }" @click="switchChat(chat.id)" :title="chat.title">
-                    <svg class="icon-svg" viewBox="0 0 24 24" style="width:18px; height:18px; opacity:0.7;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                    <!-- Chat removal -->
-                    <div class="del-btn" @click.stop="deleteChat(chat.id)" title="Delete">
-                        <svg class="del-icon-svg" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </div>
+            <div class="history-list">
+                <div v-for="chat in chatSessions" :key="chat.id" class="history-item" :class="{ active: chat.id === currentChatId }" @click="switchChat(chat.id)">
+                    <svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    <div class="del-btn" @click.stop="deleteChat(chat.id)"><svg class="del-icon-svg" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>
                 </div>
             </div>
-            <!-- Icons -->
             <div class="nav-item" @click="toggleVoice"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg></div>
+            
+            <!-- Intel Stream Icon FIXED -->
+            <div class="nav-item" @click="toggleWindow('window-intel')" title="Intel Feed">
+                <svg class="icon-svg" viewBox="0 0 24 24" style="color: var(--danger);"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+            </div>
+
             <div class="nav-item" @click="showFavorites = true"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg></div>
-            <div class="nav-item" @click="show3DWindow"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div>
+            <div class="nav-item" @click="toggleWindow('window-3d')"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div>
             <div class="nav-item" @click="showSettings = true"><svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></div>
         </div>
 
-        <!--
-            Chat Panel
-
-            Purpose:
-                Hosts the conversational UI: message history, input
-                field, and loading indicators. Messages are rendered
-                via Vue bindings and support markdown rendering and
-                widget placeholders produced by assistant responses.
-        -->
-        <!-- CHAT PANEL -->
+        <!-- **Chat Panel**: active session chat, input, and message history. -->
         <div class="chat-panel" id="chat-panel">
-            <div class="chat-header"><span>SESSION: {{ currentChatId ? currentChatId.slice(-4) : 'NULL' }}</span><div class="status-indicator"></div></div>
+            <div class="chat-header"><span>SESSION: {{ currentChatId ? currentChatId.slice(-4) : 'NULL' }}</span></div>
             <div class="chat-container" id="chat-box">
-                <div v-if="messages.length === 0" style="opacity:0.3; margin-top:50px; text-align:center;">SYSTEM READY.</div>
                 <div v-for="(msg, index) in messages" :key="index" class="message" :class="msg.role">
                     <div class="msg-header">[{{ msg.role === 'user' ? 'OPERATOR' : 'ARBI_CORE' }}]:</div>
                     <div class="msg-content" v-html="renderMarkdown(msg.content)"></div>
                 </div>
-                <div v-if="isLoading" class="message assistant"><div class="msg-header">[SYSTEM]:</div><span style="color:#00A3E0;">Researching...</span></div>
             </div>
-            <div class="input-zone"><div class="input-bar"><span class="prompt-symbol">>_</span><input type="text" class="text-field" v-model="input" @keyup.enter="sendMessage" placeholder="Enter command..." autocomplete="off" autofocus></div></div>
+            <div class="input-zone"><div class="input-bar"><span class="prompt-symbol">>_</span><input type="text" class="text-field" v-model="input" @keyup.enter="sendMessage" placeholder="Enter command..." autocomplete="off"></div></div>
         </div>
 
-        <!--
-            Resizer
-
-            Purpose:
-                Small draggable divider that enables the user to
-                resize the left chat panel (sidebar) and the
-                desktop/dashboard area. Mouse events are handled in
-                `/static/app.js`.
-        -->
-        <!-- RESIZER -->
         <div class="resizer" id="resizer"></div>
 
-        <!--
-            Desktop Area / Dashboard Panel
-
-            Purpose:
-                Freely-positioned widgets (chart cards) are created
-                here for each favorite ticker. A dedicated 3D window
-                contains the quant model visualization rendered by
-                Plotly when initialized.
-        -->
-        <!-- DESKTOP AREA -->
+           <!-- **Desktop Area**: floating widgets and persistent windows.
+               Contains the intel stream, pizza occupancy tracker, and
+               the quant/3D visualization window. -->
         <div class="dashboard-panel" id="desktop-area">
-            <!-- 3D Window -->
+            
+              <!-- **Intel Stream Window**: live OSINT feed for system-level alerts.
+                  This window is fixed and displays messages persisted to
+                  the `INTEL_STREAM` session on the server. -->
+            <div id="window-intel" class="chart-card" style="top: 150px; left: 50px; width: 450px; height: 500px; display: flex; border-color: var(--danger);">
+                <div class="chart-title-bar" style="background: #1a0a0a;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="color: var(--danger);">●</span>
+                        <span>INTEL_STREAM (LIVE_OSINT)</span>
+                    </div>
+                    <span class="chart-remove-btn" @click="toggleWindow('window-intel')">
+                        <svg class="del-icon-svg" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </span>
+                </div>
+                <div class="intel-feed">
+                    <div v-if="intelMessages.length === 0" class="scanning-msg">SCANNING FREQUENCIES...</div>
+                    <div v-for="item in intelMessages" :key="item.id" class="intel-item">
+                        <div class="intel-time">{{ new Date().toLocaleTimeString() }} | SIGNAL</div>
+                        <div v-html="renderMarkdown(item.content)"></div>
+                    </div>
+                </div>
+            </div>
+
+              <!-- **Pizza Index Widget**: occupancy/popularity tracker for
+                  curated venues. The widget is backed by the server-side
+                  `PizzaService` and is suitable for demo and rapid UX
+                  iteration (mock or real data). -->
+            <div id="window-pizza" class="chart-card" style="width: 350px; height: 500px; top: 20px; right: 20px; border-color: #333;">
+                <div class="chart-title-bar">
+                    <span style="font-size: 10px;">OSINT_PIZZA_TRACKER // LIVE</span>
+                    <span class="chart-remove-btn" onclick="document.getElementById('window-pizza').style.display='none'">
+                        <svg class="del-icon-svg" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </span>
+                </div>
+                
+                <!-- Container for the list of tracked pizza venues. -->
+                <div class="pizza-feed">
+                    <div v-for="shop in pizzaData" :key="shop.name" class="pizza-card">
+                        
+                        <!-- Header and status badge -->
+                        <div class="pc-header">
+                            <span class="pc-name">🍕 {{ shop.name }}</span>
+                            <span class="pc-badge" :class="shop.status">
+                                {{ shop.spike_pct > 0 ? '+' : '' }}{{ shop.spike_pct }}% {{ shop.status }}
+                            </span>
+                        </div>
+
+                        <!-- Bar chart representing 24-hour historical occupancy -->
+                        <div class="pc-chart">
+                            <!-- Render 24 hourly bars -->
+                            <div v-for="(val, h) in shop.historical" :key="h" class="pc-bar-wrapper">
+                                <div class="pc-bar" 
+                                    :style="{ height: val + '%' }" 
+                                    :class="{ 'active-hour': h === shop.current_hour, 'spike': h === shop.current_hour && shop.status === 'SPIKE' }">
+                                </div>
+                                <!-- If this is the current hour, overlay live data. -->
+                                <div v-if="h === shop.current_hour" class="pc-bar-live" 
+                                    :style="{ height: shop.live_value + '%' }"
+                                    :class="shop.status">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="pc-footer">
+                            <span v-if="shop.status === 'SPIKE'" style="color: var(--danger)">LIVE: MUCH BUSIER THAN USUAL</span>
+                            <span v-else-if="shop.status === 'QUIET'" style="color: #00A3E0">LIVE: QUIETER THAN USUAL</span>
+                            <span v-else style="color: #666">LIVE: AS BUSY AS USUAL</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+              <!-- **3D Quant Window**: interactive Plotly visualization of the
+                  modelled volatility surface; selectable ticker list is
+                  populated from the user's favorites and default options. -->
             <div id="window-3d" class="chart-card" style="top: 20px; left: 20px; width: 500px; height: 350px; display: none;">
                 <div class="chart-title-bar">
                     <div style="display:flex; align-items:center; gap:10px;">
-                        <svg class="icon-svg" viewBox="0 0 24 24" style="width:14px; height:14px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                         <span>QUANT_MODEL</span>
-                        <select v-model="selected3DTicker" style="background:#1a1a1a; color:white; border:none; font-family:inherit; font-size:10px;" @mousedown.stop>
+                        <select v-model="selected3DTicker" @mousedown.stop>
                             <option v-for="t in favorites" :key="t" :value="t">{{ t }}</option>
                             <option value="SPY">SPY</option>
                         </select>
                     </div>
-                    <!--  Initialization button -->
-                    <span class="chart-remove-btn" onclick="document.getElementById('window-3d').style.display='none'">
+                    <span class="chart-remove-btn" @click="toggleWindow('window-3d')">
                         <svg class="del-icon-svg" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </span>
                 </div>
                 <div id="quant-chart" class="tv-widget-container"></div>
-                <!-- Loading button-->
-                <div v-if="!is3DLoaded" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);">
-                    <button class="modal-btn" @click="fetch3DData">INIT MODEL</button>
-                </div>
+                <div v-if="!is3DLoaded" class="init-btn-overlay"><button class="modal-btn" @click="fetch3DData">INIT MODEL</button></div>
             </div>
         </div>
 
-        <!--
-            Modals
-
-            Purpose:
-                Overlaid dialogs used for voice input, watchlist
-                management, and settings. These are implemented as
-                simple conditional containers controlled by Vue
-                reactive state.
-        -->
-        <!-- MODALS -->
-        <div v-if="showVoice" class="modal-mask" @click.self="showVoice = false"><div class="modal-body" style="text-align:center;"><h3>VOICE UPLINK</h3><div style="width:60px; height:60px; background:#00A3E0; border-radius:50%; margin:20px auto; display:flex; align-items:center; justify-content:center;"><svg class="icon-svg" viewBox="0 0 24 24" style="color:white; width:30px; height:30px;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg></div><div>{{ voiceStatusText }}</div></div></div>
-        <div v-if="showFavorites" class="modal-mask" @click.self="showFavorites = false"><div class="modal-body"><h3>WATCHLIST</h3><input type="text" v-model="newFav" @keyup.enter="addFavorite" style="width:100%; padding:10px; background:#000; border:1px solid #333; color:white;"><div style="margin-top:15px;"><div v-for="t in favorites" :key="t" style="padding:5px 0; display:flex; justify-content:space-between; border-bottom:1px solid #222;"><span>{{ t }}</span><span @click="removeFavorite(t)" style="color:#cf6679; cursor:pointer;"><svg class="del-icon-svg" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></span></div></div></div></div>
-        <div v-if="showSettings" class="modal-mask" @click.self="showSettings = false"><div class="modal-body"><h3>SETTINGS</h3><button class="modal-btn" @click="showSettings = false">CLOSE</button></div></div>
+           <!-- **Modals**: ephemeral overlays for voice, favorites, and
+               other modal interactions. These are rendered conditionally. -->
+        <div v-if="showVoice" class="modal-mask" @click.self="showVoice = false"><div class="modal-body"><h3>VOICE UPLINK</h3><div>{{ voiceStatusText }}</div></div></div>
+        <div v-if="showFavorites" class="modal-mask" @click.self="showFavorites = false"><div class="modal-body"><h3>WATCHLIST</h3><input type="text" v-model="newFav" @keyup.enter="addFavorite"><div v-for="t in favorites" :key="t">{{ t }} <span @click="removeFavorite(t)">[X]</span></div></div></div>
     </div>
     <script src="/static/app.js"></script>
 </body>
