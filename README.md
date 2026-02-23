@@ -13,6 +13,7 @@
 </div>
 
 ---
+![Main Dashboard](nr_screenshot.jpg)
 
 ## 📖 Overview
 
