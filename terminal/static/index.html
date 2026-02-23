@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!--
+        ARBITRON SPA - index.html
+
+        This document is the single-page application's static shell.
+        It contains the primary layout regions (sidebar, chat panel,
+        desktop area with floating windows), imports runtime
+        libraries (Vue, Plotly, TradingView), and mounts the client
+        application script located at `/static/app.js`.
+
+        Section-level comments describe the purpose of major DOM
+        regions; behavioural details live in the client script.
+    -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARBI OS v2.0</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <!-- **Sidebar**: primary navigation and session selector.
+                         - New session, session history, voice toggle, intel feed,
+                             favorites, 3D visualization and settings controls live here. -->
+        <div class="sidebar">
+            <img src="/static/assets/logo.ico" style="width: 32px; height: 32px; margin-bottom: 20px;">
+            <div class="nav-item" @click="createNewChat" title="New Session">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </div>
+            <div class="history-list">
+                <div v-for="chat in chatSessions" :key="chat.id" class="history-item"
+                    :class="{ active: chat.id === currentChatId }" @click="switchChat(chat.id)">
+                    <svg class="icon-svg" viewBox="0 0 24 24">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <div class="del-btn" @click.stop="deleteChat(chat.id)"><svg class="del-icon-svg"
+                            viewBox="0 0 24 24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg></div>
+                </div>
+            </div>
+            <div class="nav-item" @click="toggleVoice"><svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg></div>
+
+
+            <!-- RSS Feed Icon -->
+            <div class="nav-item" @click="toggleWindow('window-intel')" title="RSS Feed">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M4 11a9 9 0 0 1 9 9"></path>
+                    <path d="M4 4a16 16 0 0 1 16 16"></path>
+                    <circle cx="5" cy="19" r="1"></circle>
+                </svg>
+            </div>
+
+            <!-- Pizza Index Icon -->
+            <div class="nav-item" @click="toggleWindow('window-pizza')" title="Pizza Index">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M15 11h.01"></path>
+                    <path d="M11 15h.01"></path>
+                    <path d="M16 16h.01"></path>
+                    <path d="m2 16 20 6-6-20A20 20 0 0 0 2 16"></path>
+                    <path d="M5.71 17.11a17.04 17.04 0 0 1 11.4-11.4"></path>
+                </svg>
+            </div>
+
+            <div class="nav-item" @click="showFavorites = true"><svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg></div>
+
+            <!-- EDGAR Icon -->
+            <div class="nav-item" @click="toggleWindow('window-edgar'); fetchSavedCompanies();"
+                title="SEC EDGAR Financials">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14h-2v-2h2zm0-4h-2V7h2z" /><text x="8" y="16"
+                        fill="currentColor" font-weight="bold" font-size="12">$</text>
+                </svg>
+            </div>
+
+            <!-- FRED Icon -->
+            <div class="nav-item" @click="toggleWindow('window-fred'); fetchSavedFredSeries();"
+                title="Macro Economics (FRED)">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none" />
+                    <text x="7" y="16" fill="currentColor" font-weight="bold" font-size="12">M</text>
+                </svg>
+            </div>
+
+            <!-- Trade Bot Icon -->
+            <div class="nav-item" @click="toggleWindow('window-tradebot')" title="Trade Bot">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M12 8V4H8"></path>
+                    <rect width="16" height="12" x="4" y="8" rx="2"></rect>
+                    <path d="M2 14h2"></path>
+                    <path d="M20 14h2"></path>
+                    <path d="M15 13v2"></path>
+                    <path d="M9 13v2"></path>
+                </svg>
+            </div>
+
+            <!-- Docker Logs Icon -->
+            <div class="nav-item" @click="toggleWindow('window-logs'); fetchLogs();" title="Docker Logs">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" fill="none" stroke="currentColor"
+                        stroke-width="2"></rect>
+                    <line x1="7" y1="2" x2="7" y2="22" stroke="currentColor" stroke-width="2"></line>
+                    <line x1="17" y1="2" x2="17" y2="22" stroke="currentColor" stroke-width="2"></line>
+                    <line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"></line>
+                    <line x1="2" y1="7" x2="22" y2="7" stroke="currentColor" stroke-width="2"></line>
+                    <line x1="2" y1="17" x2="22" y2="17" stroke="currentColor" stroke-width="2"></line>
+                </svg>
+            </div>
+
+            <div class="nav-item" @click="toggleWindow('window-3d')"><svg class="icon-svg" viewBox="0 0 24 24">
+                    <path
+                        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                    </path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg></div>
+            <div class="nav-item" @click="showSettings = true"><svg class="icon-svg" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                    </path>
+                </svg></div>
+        </div>
+
+        <!-- **Chat Panel**: active session chat, input, and message history. -->
+        <div class="chat-panel" id="chat-panel">
+            <div class="chat-header"><span>SESSION: {{ currentChatId ? currentChatId.slice(-4) : 'NULL' }}</span></div>
+            <div class="chat-container" id="chat-box">
+                <div v-for="(msg, index) in messages" :key="index" class="message" :class="msg.role">
+                    <div class="msg-header">[{{ msg.role === 'user' ? 'User' : 'Arbi Assistant' }}]:</div>
+                    <div class="msg-content" v-html="renderMarkdown(msg.content)"></div>
+                </div>
+            </div>
+            <div class="input-zone">
+                <div class="input-bar"><span class="prompt-symbol">>_</span><input type="text" class="text-field"
+                        v-model="input" @keyup.enter="sendMessage" placeholder="Enter command..." autocomplete="off">
+                </div>
+            </div>
+        </div>
+
+        <div class="resizer" id="resizer"></div>
+
+        <!-- **Desktop Area**: floating widgets and persistent windows.
+               Contains the intel stream, pizza occupancy tracker, and
+               the quant/3D visualization window. -->
+        <div class="dashboard-panel" id="desktop-area">
+
+            <!-- **Intel Stream Window**: live OSINT feed for system-level alerts.
+                  This window is fixed and displays messages persisted to
+                  the `INTEL_STREAM` session on the server. -->
+            <div id="window-intel" class="chart-card"
+                style="top: 150px; left: 50px; width: 450px; height: 500px; display: none; border-color: var(--danger);">
+                <div class="chart-title-bar" style="background: #1a0a0a;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="color: var(--danger);">●</span>
+                        <span>RSS News Feed</span>
+                    </div>
+                    <span class="chart-remove-btn" @click="toggleWindow('window-intel')">
+                        <svg class="del-icon-svg" viewBox="0 0 24 24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </span>
+                </div>
+                <div class="intel-feed">
+                    <div v-if="intelMessages.length === 0" class="scanning-msg">SCANNING FREQUENCIES...</div>
+                    <div v-for="item in intelMessages" :key="item.id" class="intel-item">
+                        <div class="intel-time">{{ new Date().toLocaleTimeString() }} | SIGNAL</div>
+                        <div v-html="renderMarkdown(item.content)"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- **Pizza Index Widget**: occupancy/popularity tracker for
+                  curated venues. The widget is backed by the server-side
+                  `PizzaService` and is suitable for demo and rapid UX
+                  iteration (mock or real data). -->
+            <div id="window-pizza" class="chart-card"
+                style="width: 350px; height: 500px; top: 20px; right: 20px; border-color: #333; display: none;">
+                <div class="chart-title-bar">
+                    <span style="font-size: 10px;">Pentagon Pizza Index</span>
+                    <span class="chart-remove-btn"
+                        onclick="document.getElementById('window-pizza').style.display='none'">
+                        <svg class="del-icon-svg" viewBox="0 0 24 24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </span>
+                </div>
+
+                <!-- Container for the list of tracked pizza venues. -->
+                <div class="pizza-feed">
+                    <div v-for="shop in pizzaData" :key="shop.name" class="pizza-card">
+
+                        <!-- Header and status badge -->
+                        <div class="pc-header">
+                            <span class="pc-name">🍕 {{ shop.name }}</span>
+                            <span class="pc-badge" :class="shop.status">
+                                {{ shop.spike_pct > 0 ? '+' : '' }}{{ shop.spike_pct }}% {{ shop.status }}
+                            </span>
+                        </div>
+
+                        <!-- Bar chart representing 24-hour historical occupancy -->
+                        <div class="pc-chart">
+                            <!-- Render 24 hourly bars -->
+                            <div v-for="(val, h) in shop.historical" :key="h" class="pc-bar-wrapper">
+                                <div class="pc-bar" :style="{ height: val + '%' }"
+                                    :class="{ 'active-hour': h === shop.current_hour, 'spike': h === shop.current_hour && shop.status === 'SPIKE' }">
+                                </div>
+                                <!-- If this is the current hour, overlay live data. -->
+                                <div v-if="h === shop.current_hour" class="pc-bar-live"
+                                    :style="{ height: shop.live_value + '%' }" :class="shop.status">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pc-footer">
+                            <span v-if="shop.status === 'SPIKE'" style="color: var(--danger)">LIVE: MUCH BUSIER THAN
+                                USUAL</span>
+                            <span v-else-if="shop.status === 'QUIET'" style="color: #00A3E0">LIVE: QUIETER THAN
+                                USUAL</span>
+                            <span v-else style="color: #666">LIVE: AS BUSY AS USUAL</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- **3D Quant Window**: interactive Plotly visualization of the
+                  modelled volatility surface; selectable ticker list is
+                  populated from the user's favorites and default options. -->
+            <div id="window-3d" class="chart-card"
+                style="top: 20px; left: 20px; width: 500px; height: 350px; display: none;">
+                <div class="chart-title-bar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span>Gaussian Model</span>
+                        <select v-model="selected3DTicker" @mousedown.stop>
+                            <option v-for="t in favorites" :key="t" :value="t">{{ t }}</option>
+                            <option value="SPY">SPY</option>
+                        </select>
+                    </div>
+                    <span class="chart-remove-btn" @click="toggleWindow('window-3d')">
+                        <svg class="del-icon-svg" viewBox="0 0 24 24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </span>
+                </div>
+                <div id="quant-chart" class="tv-widget-container"></div>
+                <div v-if="!is3DLoaded" class="init-btn-overlay"><button class="modal-btn" @click="fetch3DData">INIT
+                        MODEL</button></div>
+            </div>
+
+            <!-- **EDGAR Financials Window** -->
+            <div id="window-edgar" class="chart-card"
+                style="top: 100px; left: 100px; width: 800px; height: 600px; display: none; flex-direction: column;">
+                <div class="chart-title-bar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="color: #0f0;">$</span>
+                        <span>SEC EDGAR FINANCIALS</span>
+                    </div>
+                    <span class="chart-remove-btn" @click="toggleWindow('window-edgar')">
+                        <svg class="del-icon-svg" viewBox="0 0 24 24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </span>
+                </div>
+                <div style="display: flex; flex: 1; overflow: hidden;">
+                    <!-- Sidebar List -->
+                    <div
+                        style="width: 200px; border-right: 1px solid #333; display: flex; flex-direction: column; background: rgba(0,0,0,0.2);">
+                        <div style="padding: 10px; border-bottom: 1px solid #333; display: flex; gap: 5px;">
+                            <input type="text" v-model="newEdgarTicker" @keyup.enter="searchEdgarTicker"
+                                placeholder="TICKER"
+                                style="width: 100%; background: #111; border: 1px solid #444; color: #fff; padding: 4px; text-transform: uppercase;">
+                            <button class="modal-btn" @click="searchEdgarTicker" style="padding: 0 8px;">+</button>
+                        </div>
+                        <div
+                            style="padding: 10px; border-bottom: 1px solid #333; font-weight: bold; color: #888; font-size: 10px;">
+                            SAVED TICKERS</div>
+                        <div style="flex: 1; overflow-y: auto;">
+                            <div v-for="t in savedCompanies" :key="t" @click="loadEdgarData(t)"
+                                style="padding: 10px; cursor: pointer; border-bottom: 1px solid #222;"
+                                :style="{ background: selectedEdgarTicker === t ? '#2a2a2a' : 'transparent', color: selectedEdgarTicker === t ? '#fff' : '#aaa' }">
+                                {{ t }}
+                            </div>
+                            <div v-if="savedCompanies.length === 0"
+                                style="padding: 10px; font-style: italic; color: #555;">No data saved</div>
+                        </div>
+                    </div>
+
+                    <!-- Main Content -->
+                    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;">
+                        <div v-if="selectedEdgarTicker"
+                            style="padding: 15px; flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                            <h2 style="margin: 0 0 10px 0;">{{ selectedEdgarTicker }} Financials</h2>
+
+                            <!-- Tabs -->
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                <button class="modal-btn" style="padding: 5px 10px; font-size: 12px;">Charts</button>
+                            </div>
+
+                            <div v-if="isEdgarLoading" style="color: #666;">Loading SEC data... (This may take a few
+                                seconds if not cached)</div>
+
+                            <!-- Charts Container -->
+                            <div v-show="!isEdgarLoading" class="edgar-feed">
+                                <div v-for="chart in activeEdgarCharts" :key="chart.id"
+                                    style="margin-bottom: 20px; border: 1px solid #222; background: rgba(0,0,0,0.2);">
+                                    <div :id="chart.id" style="width: 100%; height: 300px;"></div>
+                                </div>
+                                <div v-if="activeEdgarCharts.length === 0 && !isEdgarLoading"
+                                    style="padding: 20px; text-align: center; color: #666;">
+                                    No displayable financial metrics found for this company.
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else
+                            style="display: flex; align-items: center; justify-content: center; flex: 1; color: #444;">
+                            Select a ticker to view financials
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FRED Window (Macro) -->
+            <div id="window-fred" class="chart-card"
+                style="top: 100px; left: 100px; width: 800px; height: 600px; display: none; flex-direction: column;">
+                <div class="chart-title-bar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="color: #0f0;">$</span>
+                        <span>MACRO ECONOMICS (FRED)</span>
+                    </div>
+                    <span class="chart-remove-btn" @click="toggleWindow('window-fred')">
+                        <svg class="del-icon-svg" viewBox="0 0 24 24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </span>
+                </div>
+                <div style="display: flex; flex: 1; overflow: hidden;">
+                    <!-- Sidebar List -->
+                    <div
+                        style="width: 200px; border-right: 1px solid #333; display: flex; flex-direction: column; background: rgba(0,0,0,0.2);">
+                        <div style="padding: 10px; border-bottom: 1px solid #333; display: flex; gap: 5px;">
+                            <input type="text" v-model="newFredSeries" @keyup.enter="addFredSeries"
+                                placeholder="SERIES ID"
+                                style="width: 100%; background: #111; border: 1px solid #444; color: #fff; padding: 4px; text-transform: uppercase;">
+                            <button class="modal-btn" @click="addFredSeries" style="padding: 0 8px;">+</button>
+                        </div>
+                        <div
+                            style="padding: 10px; border-bottom: 1px solid #333; font-weight: bold; color: #888; font-size: 10px;">
+                            SAVED SERIES</div>
+                        <div style="flex: 1; overflow-y: auto;">
+                            <div v-for="s in savedFredSeries" :key="s" @click="loadFredSeries(s)"
+                                style="padding: 10px; cursor: pointer; border-bottom: 1px solid #222;"
+                                :style="{ background: currentFredSeries === s ? '#2a2a2a' : 'transparent', color: currentFredSeries === s ? '#fff' : '#aaa' }">
+                                {{ s }}
+                            </div>
+                            <div v-if="savedFredSeries.length === 0"
+                                style="padding: 10px; font-style: italic; color: #555;">No data saved</div>
+                        </div>
+                    </div>
+
+                    <!-- Main Content -->
+                    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;">
+                        <div v-if="currentFredSeries"
+                            style="padding: 15px; flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                            <h2 style="margin: 0 0 10px 0;">{{ currentFredSeries }} Data</h2>
+
+                            <!-- Tabs -->
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                <button class="modal-btn" style="padding: 5px 10px; font-size: 12px;">Charts</button>
+                            </div>
+
+                            <div v-if="isFredLoading" style="color: #666;">Loading FRED data... (This may take a few
+                                seconds if not cached)</div>
+
+                            <!-- Charts Container -->
+                            <div v-show="!isFredLoading" class="fred-feed">
+                                <div v-for="chart in activeFredCharts" :key="chart.id"
+                                    style="margin-bottom: 20px; border: 1px solid #222; background: rgba(0,0,0,0.2);">
+                                    <div :id="chart.id" style="width: 100%; height: 300px;"></div>
+                                </div>
+                                <div v-if="activeFredCharts.length === 0 && !isFredLoading"
+                                    style="padding: 20px; text-align: center; color: #666;">
+                                    No displayable FRED metrics found for this series.
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else
+                            style="display: flex; align-items: center; justify-content: center; flex: 1; color: #444;">
+                            Select a series to view data
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- **Trade Bot Window** -->
+            <div id="window-tradebot" class="chart-card"
+                style="top: 150px; left: 150px; width: 900px; height: 650px; display: none; flex-direction: column;">
+                <div class="chart-title-bar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <svg class="del-icon-svg" viewBox="0 0 24 24"
+                            style="color: var(--accent-color); width: 14px; height: 14px;">
+                            <path d="M12 8V4H8"></path>
+                            <rect width="16" height="12" x="4" y="8" rx="2"></rect>
+                            <path d="M15 13v2"></path>
+                            <path d="M9 13v2"></path>
+                        </svg>
+                        <span>Trade Bot Control Center</span>
+                    </div>
+                    <span class="chart-remove-btn" @click="toggleWindow('window-tradebot')">
+                        <svg class="del-icon-svg" viewBox="0 0 24 24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </span>
+                </div>
+                <div style="display: flex; flex: 1; overflow: hidden; background: #000;">
+                    <!-- Sidebar: Test Results -->
+                    <div style="width: 250px; border-right: 1px solid #222; display: flex; flex-direction: column;">
+                        <div style="padding: 12px; background: rgba(0,255,0,0.05); border-bottom: 1px solid #222;">
+                            <button class="modal-btn" style="width: 100%; border-color: #0f4; margin-bottom: 10px;"
+                                @click="triggerNewTraining">
+                                [ RE-TRAIN MODEL ]
+                            </button>
+
+                            <!-- Custom Backtest Section -->
+                            <div style="padding: 10px; border: 1px dashed #333; margin-top: 10px; border-radius: 4px;">
+                                <div style="font-size: 8px; color: #666; margin-bottom: 5px;">CUSTOM BACKTEST</div>
+                                <div style="display: flex; flex-direction: column; gap: 5px;">
+                                    <input type="date" v-model="backtestStartDate"
+                                        style="background: #000; color: #fff; border: 1px solid #444; font-size: 10px; padding: 3px;">
+                                    <input type="date" v-model="backtestEndDate"
+                                        style="background: #000; color: #fff; border: 1px solid #444; font-size: 10px; padding: 3px;">
+                                    <button class="modal-btn" style="font-size: 9px; padding: 5px;"
+                                        @click="runCustomBacktest">
+                                        RUN BACKTEST
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            style="padding: 10px; font-size: 10px; font-weight: bold; color: #555; text-transform: uppercase;">
+                            AVAILABLE BACKTESTS
+                        </div>
+                        <div style="flex: 1; overflow-y: auto;">
+                            <div v-for="test in backtestList" :key="test.run_id"
+                                @click="loadBacktestDetails(test.run_id)"
+                                style="padding: 12px; border-bottom: 1px solid #111; cursor: pointer; transition: all 0.2s;"
+                                :style="{ background: selectedRunId === test.run_id ? '#1a1a1a' : 'transparent' }">
+                                <div style="font-size: 11px; font-weight: bold; color: #0f0; margin-bottom: 4px;">{{
+                                    test.run_name.slice(0,20) }}...</div>
+                                <div style="font-size: 9px; color: #666;">{{ new
+                                    Date(test.start_time).toLocaleDateString() }}</div>
+                            </div>
+                            <div v-if="backtestList.length === 0"
+                                style="padding: 20px; color: #444; font-style: italic; text-align: center;">
+                                No backtests found.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Dashboard -->
+                    <div style="flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px;">
+                        <div v-if="selectedRunId && backtestData"
+                            style="display: flex; flex-direction: column; gap: 20px;">
+                            <!-- Top Metrics Row -->
+                            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;">
+                                <div class="metric-card"
+                                    style="background: rgba(0,0,0,0.3); border: 1px solid #222; padding: 15px;">
+                                    <div style="font-size: 10px; color: #888; margin-bottom: 5px;">SHARPE RATIO</div>
+                                    <div style="font-size: 18px; color: #0f0; font-family: monospace;">{{
+                                        backtestData.performance.sharpe.toFixed(2) }}</div>
+                                </div>
+                                <div class="metric-card"
+                                    style="background: rgba(0,0,0,0.3); border: 1px solid #222; padding: 15px;">
+                                    <div style="font-size: 10px; color: #888; margin-bottom: 5px;">MAX DRAWDOWN</div>
+                                    <div style="font-size: 18px; color: #f00; font-family: monospace;">{{
+                                        (backtestData.performance.max_drawdown * 100).toFixed(1) }}%</div>
+                                </div>
+                                <div class="metric-card"
+                                    style="background: rgba(0,0,0,0.3); border: 1px solid #222; padding: 15px;">
+                                    <div style="font-size: 10px; color: #888; margin-bottom: 5px;">RETURN (ROI)</div>
+                                    <div style="font-size: 18px; color: #0f0; font-family: monospace;">{{
+                                        (backtestData.metrics?.return_pct || 0).toFixed(2) }}%</div>
+                                </div>
+                                <div class="metric-card"
+                                    style="background: rgba(0,0,0,0.3); border: 1px solid #222; padding: 15px;">
+                                    <div style="font-size: 10px; color: #888; margin-bottom: 5px;">CONFIDENCE</div>
+                                    <div style="font-size: 18px; color: #0af; font-family: monospace;">{{
+                                        (backtestData.metrics?.confidence_score || 0).toFixed(4) }}</div>
+                                </div>
+                                <div class="metric-card"
+                                    style="background: rgba(0,0,0,0.3); border: 1px solid #222; padding: 15px;">
+                                    <div style="font-size: 10px; color: #888; margin-bottom: 5px;">MEAN IC</div>
+                                    <div style="font-size: 18px; color: #0af; font-family: monospace;">{{
+                                        backtestData.ic.mean.toFixed(4) }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Financials Row -->
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                                <div class="metric-card"
+                                    style="background: rgba(0,0,0,0.3); border: 1px solid #222; padding: 15px;">
+                                    <div style="font-size: 10px; color: #888; margin-bottom: 5px;">TOTAL NET PROFIT
+                                    </div>
+                                    <div style="font-size: 24px; color: #0f0; font-family: monospace;">
+                                        ${{ (backtestData.metrics?.net_profit || 0).toLocaleString(undefined, {
+                                        maximumFractionDigits: 0 }) }}
+                                    </div>
+                                </div>
+                                <div class="metric-card"
+                                    style="background: rgba(0,0,0,0.3); border: 1px solid #222; padding: 15px;">
+                                    <div style="font-size: 10px; color: #888; margin-bottom: 5px;">FINAL CAPITAL</div>
+                                    <div style="font-size: 24px; color: #fff; font-family: monospace;">
+                                        ${{ (backtestData.metrics?.final_capital || 0).toLocaleString(undefined, {
+                                        maximumFractionDigits: 0 }) }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Charts -->
+                            <div style="background: rgba(0,0,0,0.3); border: 1px solid #222; padding: 10px;">
+                                <div style="font-size: 10px; color: #666; margin: 0 0 10px 10px;">CUMULATIVE PERFORMANCE
+                                    (PnL)</div>
+                                <div id="tb-chart-performance" style="width: 100%; height: 250px;"></div>
+                            </div>
+
+                            <div style="background: rgba(0,0,0,0.3); border: 1px solid #222; padding: 10px;">
+                                <div style="font-size: 10px; color: #666; margin: 0 0 10px 10px;">INFORMATION
+                                    COEFFICIENT (SIGNAL QUALITY)</div>
+                                <div id="tb-chart-ic" style="width: 100%; height: 250px;"></div>
+                            </div>
+                        </div>
+                        <div v-else-if="selectedRunId"
+                            style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666;">
+                            [ LOADING ANALYTICS... ]
+                        </div>
+                        <div v-else
+                            style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #444;">
+                            <svg viewBox="0 0 24 24"
+                                style="width: 64px; height: 64px; margin-bottom: 20px; color: #222;">
+                                <path d="M12 8V4H8" stroke="currentColor" fill="none"></path>
+                                <rect width="16" height="12" x="4" y="8" rx="2" stroke="currentColor" fill="none">
+                                </rect>
+                                <path d="M15 13v2" stroke="currentColor"></path>
+                                <path d="M9 13v2" stroke="currentColor"></path>
+                            </svg>
+                            <div style="font-style: italic;">Select a backtest from the sidebar to view detailed
+                                analytics</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- **Docker Logs Window** -->
+            <div id="window-logs" class="chart-card"
+                style="top: 200px; left: 200px; width: 700px; height: 500px; display: none; flex-direction: column; border-color: #555;">
+                <div class="chart-title-bar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <svg class="icon-svg" viewBox="0 0 24 24" style="width: 14px; height: 14px;">
+                            <rect x="2" y="2" width="20" height="20" rx="2" fill="none" stroke="currentColor"></rect>
+                            <line x1="7" y1="2" x2="7" y2="22" stroke="currentColor"></line>
+                            <line x1="17" y1="2" x2="17" y2="22" stroke="currentColor"></line>
+                        </svg>
+                        <span>Docker Container Logs</span>
+                        <select v-model="selectedLogContainer" @change="fetchLogs" @mousedown.stop
+                            style="background: #111; color: #0f0; border: 1px solid #333; font-size: 10px; padding: 2px 5px; font-family: monospace;">
+                            <option value="arbitron_terminal">Terminal (Backend/UI)</option>
+                            <option value="quant_engine">Quant Engine (API)</option>
+                            <option value="quant_worker">Quant Worker (Celery)</option>
+                            <option value="redis">Redis (Queue)</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 10px; color: #666; cursor: pointer;" @click="fetchLogs">[ REFRESH
+                            ]</span>
+                        <span class="chart-remove-btn" @click="toggleWindow('window-logs')">
+                            <svg class="del-icon-svg" viewBox="0 0 24 24">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+                <div class="log-viewer-container"
+                    style="flex: 1; background: #050505; padding: 10px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 11px; color: #ccc; line-height: 1.4;">
+                    <div v-if="isLogsLoading" style="color: #444;">[ INITIALIZING LOG STREAM... ]</div>
+                    <pre v-else
+                        style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">{{ containerLogs }}</pre>
+                </div>
+            </div>
+
+            <!-- **Modals**: ephemeral overlays for voice, favorites, and
+               other modal interactions. These are rendered conditionally. -->
+            <div v-if="showVoice" class="modal-mask" @click.self="showVoice = false">
+                <div class="modal-body">
+                    <h3>VOICE UPLINK</h3>
+                    <div>{{ voiceStatusText }}</div>
+                </div>
+            </div>
+            <div v-if="showFavorites" class="modal-mask" @click.self="showFavorites = false">
+                <div class="modal-body" style="width: 400px;">
+                    <h3>WATCHLIST</h3>
+                    <div style="display: flex; gap: 8px; margin-bottom: 20px; align-items: flex-start;">
+                        <div style="flex: 1; display: flex; flex-direction: column;">
+                            <input type="text" v-model="newFav" @keyup.enter="addFavorite" placeholder="ADD TICKER..."
+                                style="width: 100%; background: #111; border: 1px solid #444; color: #fff; padding: 10px; text-transform: uppercase; margin: 0;">
+                        </div>
+                        <button class="modal-btn" @click="addFavorite"
+                            style="width: 40px; height: 38px; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                            +
+                        </button>
+                    </div>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <div v-for="t in favorites" :key="t"
+                            style="display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #222;">
+                            <span style="font-weight: bold; letter-spacing: 1px;">{{ t }}</span>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="modal-btn" @click="openTickerChart(t)"
+                                    style="font-size: 10px; padding: 4px 8px; width: 100px;">
+                                    OPEN CHART
+                                </button>
+                                <button class="modal-btn" @click="removeFavorite(t)"
+                                    style="font-size: 10px; padding: 4px 8px; background: #300; border-color: #500; color: #f55;">
+                                    REMOVE
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="favorites.length === 0" style="padding: 20px; text-align: center; color: #555;">
+                            Your watchlist is empty.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script src="/static/app.js"></script>
+</body>
+
+</html>

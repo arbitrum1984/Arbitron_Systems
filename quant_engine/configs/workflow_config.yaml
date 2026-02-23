@@ -1,0 +1,55 @@
+workflow_experiment: "as_qlib_test"
+
+dataset_config:
+    class: DatasetH
+    module_path: qlib.data.dataset
+    kwargs:
+        handler:
+            class: Alpha158
+            module_path: qlib.contrib.data.handler
+            kwargs:
+                instruments: all
+                start_time: 2010-01-01
+                end_time: 2026-12-25
+                fit_start_time: 2010-01-01
+                fit_end_time: 2020-12-25
+                
+                infer_processors:
+                    - class: RobustZScoreNorm
+                      kwargs:
+                          fields_group: feature
+                          clip_outlier: true
+                    - class: Fillna
+                      kwargs:
+                          fields_group: feature
+                learn_processors:
+                    - class: DropnaLabel
+                    - class: CSRankNorm
+                      kwargs:
+                          fields_group: label
+                label: ["Ref($close, -5) / $close - 1"]
+
+        segments:
+            train: [2010-01-01, 2020-12-25]
+            valid: [2021-01-01, 2021-12-25]
+            test:  [2022-01-01, 2026-12-25]
+
+model_config:
+    class: LGBModel
+    module_path: qlib.contrib.model.gbdt
+    kwargs:
+        loss: mse
+        #objective: huber
+        colsample_bytree: 0.7
+        learning_rate: 0.05
+        early_stopping_rounds: 50
+        subsample: 0.7
+        subsample_freq: 1
+        num_leaves: 64
+        max_depth: -1
+        n_estimators: 1000
+        lambda_l1: 2.0
+        lambda_l2: 2.0
+        no_unused_lib: True
+        min_child_samples: 1000
+        verbosity: -1

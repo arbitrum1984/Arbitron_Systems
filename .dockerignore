@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Data & Models
+**/data/
+**/qlib_data/
+**/models/
+**/mlruns/
+.cache_backtests/
+.cache/
+
+# Git & IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project
+.env
+*.log
+*.html
+**/volumes/
+**/temp/
+**/tmp/
+**/brain/
+CORTEX_SESSION/
+CORTEX_REPRO/
+workflow_results/
+diagnostic_results/
+test_results/
+coverage/
+node_modules/
+dist/
+build/
+*.egg-info/

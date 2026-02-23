@@ -1,0 +1,81 @@
+services:
+  # --- 1. ТЕРМИНАЛ (UI/Backend) ---
+  terminal:
+    build: ./terminal
+    container_name: arbitron_terminal
+    ports:
+      - "8000:8000"
+    environment:
+      - QUANT_SERVICE_URL=http://quant_engine:8001
+      - QUANT_SERVICE_URL=http://quant_engine:8001
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - FRED_API_KEY=${FRED_API_KEY}
+      - PYTHONPYCACHEPREFIX=/tmp/pycache
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    volumes:
+      - ./terminal:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - quant_engine
+      - redis
+
+  # --- 2. КВАНТ ДВИЖОК (API для прогнозов) ---
+  quant_engine:
+    build: ./quant_engine
+    container_name: quant_engine
+    command: uvicorn inference_api:app --host 0.0.0.0 --port 8001
+    environment:
+      - PYTHONPYCACHEPREFIX=/tmp/pycache
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+    volumes:
+      - ./quant_engine:/app
+      - qlib_data:/data/qlib_data # Общая папка данных
+      - model_data:/data/models # Общая папка моделей
+    expose:
+      - "8001"
+
+  # --- 3. ВОРКЕР (Обучение и загрузка данных) ---
+  quant_worker:
+    build: ./quant_engine
+    container_name: quant_worker
+    # Запускаем Celery worker
+    command: celery -A tasks worker --loglevel=info
+    volumes:
+      - ./quant_engine:/app
+      - qlib_data:/data/qlib_data
+      - model_data:/data/models
+    environment:
+      - FRED_API_KEY=${FRED_API_KEY}
+      - PYTHONPYCACHEPREFIX=/tmp/pycache
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+    depends_on:
+      - redis
+
+  # --- 4. REDIS (Очереди задач) ---
+  redis:
+    image: redis:7-alpine
+    # --- 5. DASHBOARD ДЛЯ ЗАДАЧ (Опционально) ---
+    #flower:
+    # image: mher/flower
+    #ports:
+    # - "5555:5555"
+    #environment:
+    #- CELERY_BROKER_URL=redis://redis:6379/0
+    #depends_on:
+    #- redis
+
+volumes:
+  qlib_data:
+  model_data:
