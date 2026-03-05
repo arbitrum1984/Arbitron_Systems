@@ -65,7 +65,47 @@ check_*.py
 diag*.py
 final_verify.py
 init_reqs.py
+extract_hash.py
+
+# Debug output files
+*_debug.html
+*_debug.png
+debug_*.html
+debug_*.png
+dbg_*.png
+playwright_*.png
+consent.html
+captcha_debug.png
+mobile_captcha.png
 pizza_debug.html
+
+# Google session data
+google_session.json
+google_session_final/
+
+# Scraped HTML dumps
+maps_debug*.html
+mobile_debug*.html
+mobile_maps_debug*.html
+search_debug*.html
+translate_debug*.html
+yelp_debug*.html
+google_basic_debug*.html
+bing_debug*.html
+bing_maps_debug*.html
+ddg_debug*.html
+ddg_maps_debug*.png
+
+# Misc junk
+events.json
+nr_screenshot.jpg
+terminal/scripts/debug_*.py
+terminal/scripts/scrape_*.py
+terminal/debug_*.html
+terminal/debug_*.png
+terminal/dbg_*.png
+terminal/playwright_*.png
+terminal/consent.html
 
 # Cache and ML Logs
 .cache_backtests/
