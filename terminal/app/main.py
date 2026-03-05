@@ -44,9 +44,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/api/pizza")
 async def get_pizza_index():
     """
-    Retrieve the current pizza occupancy index for all configured targets.
+    Return the last cached pizza occupancy data.
+    The background pizza_loop() refreshes this cache every 5 minutes.
     """
-    return await pizza_service.check_index()
+    return pizza_service.get_cached()
 # -------------------------------------------
 
 # 3. Chat router
