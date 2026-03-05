@@ -44,10 +44,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.get("/api/pizza")
 async def get_pizza_index():
     """
-    Return the last cached pizza occupancy data.
-    The background pizza_loop() refreshes this cache every 5 minutes.
+    Return the last cached pizza occupancy data from the scraper service.
     """
-    return pizza_service.get_cached()
+    return await pizza_service.get_index()
 # -------------------------------------------
 
 # 3. Chat router
@@ -190,26 +189,9 @@ async def start_intel_engine():
                 print(f" [RSS Error]: {e}")
             await asyncio.sleep(300)
 
-    async def pizza_loop():
-        """
-        Refresh the Pizza index periodically.
-
-        Sleeps for 1800 seconds (30 minutes) between iterations. The
-        underlying service can operate in simulation mode for demo
-        scenarios.
-        """
-        print(" [Pizza Index Service] Started polling...")
-        while True:
-            try:
-                await pizza_service.check_index()
-            except Exception as e:
-                print(f" [Pizza Error]: {e}")
-            await asyncio.sleep(300)
-
     # Schedule concurrent background tasks
     asyncio.create_task(twitter_loop())
     asyncio.create_task(rss_loop())
-    asyncio.create_task(pizza_loop())
 
     print(" All Intelligence Systems are ONLINE.")
 
