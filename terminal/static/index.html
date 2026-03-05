@@ -219,7 +219,7 @@
                         </div>
 
                         <!-- Bar chart representing 24-hour historical occupancy -->
-                        <div class="pc-chart">
+                        <div class="pc-chart" v-if="shop.status !== 'NEEDS_AUTH'">
                             <!-- Render 24 hourly bars -->
                             <div v-for="(val, h) in shop.historical" :key="h" class="pc-bar-wrapper">
                                 <div class="pc-bar" :style="{ height: val + '%' }"
@@ -231,6 +231,8 @@
                                 </div>
                             </div>
                         </div>
+
+
 
                         <div class="pc-footer">
                             <span v-if="shop.status === 'SPIKE'" style="color: var(--danger)">LIVE: MUCH BUSIER THAN

@@ -45,17 +45,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def get_pizza_index():
     """
     Retrieve the current pizza occupancy index for all configured targets.
-
-    This endpoint simply proxies the normalized structure returned by
-    `PizzaService.check_index` and is intended for UI consumption.
-
-    Returns:
-        list: A list of occupancy objects as produced by the service.
     """
     return await pizza_service.check_index()
 # -------------------------------------------
 
 # 3. Chat router
+from app.api import chat
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
 
 # 3.1 Logs router
