@@ -9,7 +9,7 @@ async def get_logs(container_name: str, tail: int = 100):
     Fetch the last N lines of logs for a specific container.
     Valid containers: arbitron_terminal, quant_engine, quant_worker, redis
     """
-    valid_containers = ["arbitron_terminal", "quant_engine", "quant_worker", "redis"]
+    valid_containers = ["arbitron_terminal", "quant_engine", "quant_worker", "redis", "pizza_scraper"]
     if container_name not in valid_containers:
         raise HTTPException(status_code=400, detail="Invalid container name")
     

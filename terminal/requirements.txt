@@ -7,7 +7,6 @@ google-genai
 feedparser
 duckduckgo-search
 python-multipart==0.0.6
-playwright
 websockets
 aiofiles
 pydantic-settings
