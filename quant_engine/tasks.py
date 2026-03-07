@@ -12,6 +12,7 @@ celery_app = Celery('quant_tasks', broker='redis://redis:6379/0')
 def init_qlib():
     # Lazy init inside tasks
     if not getattr(init_qlib, "_done", False):
+        import qlib
         print("Initializing Qlib in Celery worker...")
         qlib.init(provider_uri='/data/qlib_data/my_data', dataset_cache=None, expression_cache=None)
         init_qlib._done = True
