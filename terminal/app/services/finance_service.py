@@ -26,23 +26,62 @@ class FinanceService:
     historical data suitable for quantitative processing.
     """
 
-    def get_ticker_data(self, ticker: str):
-        """Retrieve current ticker metadata and basic statistics.
+    def get_full_analysis(self, ticker: str) -> dict | None:
+        """Consolidated single-pass analysis of a ticker.
 
-        This method uses `yfinance.Ticker` to obtain a fast price value
-        and supplemental metadata from the `info` mapping. The
-        returned dictionary contains rounded price and several common
-        informational fields; if the lookup fails the method returns
-        `None`.
-
-        Args:
-            ticker (str): The ticker symbol to query (e.g. "AAPL").
+        Downloads data ONCE and computes all metrics (fundamentals,
+        technicals, patterns) from the same data to avoid redundant
+        HTTP requests to Yahoo Finance.
 
         Returns:
-            dict | None: A dictionary with keys `price`, `currency`,
-                `sector`, `pe_ratio`, and `summary`, or `None` on
-                failure.
+            dict | None: Combined analysis dict or None on failure.
         """
+        try:
+            stock = yf.Ticker(ticker)
+            price = stock.fast_info.last_price
+            info = stock.info
+
+            fund_data = {
+                "price": round(price, 2) if price else "N/A",
+                "currency": info.get('currency', 'USD'),
+                "sector": info.get('sector', 'N/A'),
+                "pe_ratio": info.get('trailingPE', 'N/A'),
+                "summary": info.get('longBusinessSummary', 'No summary available.')
+            }
+        except Exception:
+            return None
+
+        # Download historical data ONCE for both technicals and patterns
+        hist = self.get_historical_data(ticker)
+
+        tech_data = None
+        if hist is not None and not hist.empty:
+            try:
+                last_close = hist['Close'].iloc[-1]
+                last_rsi = hist['RSI'].iloc[-1]
+                sma_200 = hist['Close'].rolling(window=200).mean().iloc[-1]
+
+                trend = "Bullish (Uptrend)" if last_close > sma_200 else "Bearish (Downtrend)"
+
+                tech_data = {
+                    "rsi": round(last_rsi, 2),
+                    "trend": trend,
+                    "price": round(last_close, 2)
+                }
+            except Exception:
+                tech_data = None
+
+        # Pattern detection from same historical data
+        patterns = self._detect_patterns_from_df(hist)
+
+        return {
+            "fund": fund_data,
+            "tech": tech_data,
+            "patterns": patterns,
+        }
+
+    def get_ticker_data(self, ticker: str):
+        """Retrieve current ticker metadata and basic statistics."""
         try:
             stock = yf.Ticker(ticker)
             price = stock.fast_info.last_price
@@ -56,24 +95,10 @@ class FinanceService:
                 "summary": info.get('longBusinessSummary', 'No summary available.')
             }
         except Exception:
-            # For reliability in higher-level code, failures return None
             return None
 
     def calculate_technicals(self, ticker: str):
-        """Compute a small set of technical indicators for the ticker.
-
-        The method downloads historical data, computes the latest RSI
-        and a simple 200-day SMA to produce a nominal trend label.
-        If historical data are unavailable the method returns `None`.
-
-        Args:
-            ticker (str): The ticker symbol to analyze.
-
-        Returns:
-            dict | None: A dictionary containing `rsi` (float),
-                `trend` (str) and `price` (float), or `None` if the
-                computation cannot be completed.
-        """
+        """Compute a small set of technical indicators for the ticker."""
         try:
             hist = self.get_historical_data(ticker)
             if hist is None or hist.empty:
@@ -94,25 +119,7 @@ class FinanceService:
             return None
 
     def get_historical_data(self, ticker: str, period: str = "1y"):
-        """Download and prepare historical daily price data.
-
-        The function downloads daily OHLC data using `yfinance.download`
-        with `auto_adjust=True` to account for dividends and splits
-        and flattens multi-index output for compatibility. It computes
-        a 14-period RSI and returns a pared-down DataFrame containing
-        `Close`, `Volume`, and `RSI`. On error or if the result is
-        empty the function returns `None`.
-
-        Args:
-            ticker (str): The market ticker symbol to download.
-            period (str): The period string passed to `yfinance` (e.g.
-                "1y", "6mo"). Defaults to "1y".
-
-        Returns:
-            pandas.DataFrame | None: DataFrame with columns `Close`,
-                `Volume`, and `RSI`, indexed by date, or `None` on
-                failure or when no data are available.
-        """
+        """Download and prepare historical daily price data."""
         try:
             df = yf.download(
                 ticker,
@@ -142,19 +149,9 @@ class FinanceService:
             print(f"History Error ({ticker}): {e}")
             return None
 
-    def get_vix(self):
-        """Fetch the current VIX (Volatility Index) value."""
+    def _detect_patterns_from_df(self, df) -> str:
+        """Detect patterns from an existing DataFrame (no extra download)."""
         try:
-            vix = yf.Ticker("^VIX")
-            price = vix.fast_info.last_price
-            return round(price, 2) if price else "N/A"
-        except Exception:
-            return "N/A"
-
-    def detect_patterns(self, ticker: str):
-        """Perform simple text-based technical pattern detection."""
-        try:
-            df = self.get_historical_data(ticker, period="1mo")
             if df is None or len(df) < 5:
                 return "No definitive visual patterns detected in recent data."
 
@@ -164,16 +161,29 @@ class FinanceService:
                 p_list.append("Short-term bullish momentum")
             elif last_close < df['Close'].iloc[-5]:
                 p_list.append("Short-term bearish pressure")
-            
+
             avg_vol = df['Volume'].mean()
             last_vol = df['Volume'].iloc[-1]
             if last_vol > avg_vol * 1.5:
                 p_list.append("High volume spike detected")
 
             return "; ".join(p_list) if p_list else "Neutral price action."
-
         except Exception:
             return "Unable to analyze visual patterns."
+
+    def detect_patterns(self, ticker: str):
+        """Perform simple text-based technical pattern detection."""
+        df = self.get_historical_data(ticker, period="1mo")
+        return self._detect_patterns_from_df(df)
+
+    def get_vix(self):
+        """Fetch the current VIX (Volatility Index) value."""
+        try:
+            vix = yf.Ticker("^VIX")
+            price = vix.fast_info.last_price
+            return round(price, 2) if price else "N/A"
+        except Exception:
+            return "N/A"
 
 
 finance_engine = FinanceService()

@@ -17,6 +17,10 @@ class OpenSkyService:
         self._cached_summary = "OpenSky Network flight data currently initializing..."
         self._last_update = None
         self._raw_flights = []
+        self._http_client = httpx.AsyncClient(
+            timeout=15.0,
+            headers={"User-Agent": "ArbitronTerminalBot/1.0"}
+        )
         
         # A curated list of business jets + military/presidential aircraft (ICAO24 hex codes)
         self.target_jets = {
@@ -60,87 +64,83 @@ class OpenSkyService:
         url = f"https://opensky-network.org/api/states/all?icao24={icao24_str}"
         
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                # Add headers to avoid basic blocks and identify our client
-                headers = {"User-Agent": "ArbitronTerminalBot/1.0"}
-                response = await client.get(url, headers=headers)
-                
-                if response.status_code == 429:
-                    logger.warning("[OpenSky Service] Rate limited. Will retry later.")
-                    if "currently initializing" in self._cached_summary:
-                        self._cached_summary = "OpenSky API rate limit reached. Awaiting cooldown."
-                    return
-                
-                response.raise_for_status()
-                data = response.json()
-                
-                states = data.get("states")
-                
-                # Active flights for the UI
-                self._raw_flights = []
-                
-                # Create a textual summary for the AI
-                summary_lines = []
-                summary_lines.append("--- CORPORATE JET TRACKER (OPENSKY NETWORK) ---")
-                
-                if not states:
-                    summary_lines.append("No targeted corporate jets are currently airborne emitting ADS-B pings.")
-                else:
-                    for state in states:
-                        # OpenSky API format: [icao24, callsign, origin_country, time_position, last_contact, longitude, latitude, baro_altitude, on_ground, velocity, true_track, vertical_rate, sensors, geo_altitude, squawk, spi, position_source]
-                        icao24 = state[0]
-                        callsign = state[1].strip() if state[1] else "UNKNOWN"
-                        lon = state[5]
-                        lat = state[6]
-                        altitude_meters = state[7]
-                        on_ground = state[8]
-                        velocity_mps = state[9]
+            response = await self._http_client.get(url)
+            
+            if response.status_code == 429:
+                logger.warning("[OpenSky Service] Rate limited. Will retry later.")
+                if "currently initializing" in self._cached_summary:
+                    self._cached_summary = "OpenSky API rate limit reached. Awaiting cooldown."
+                return
+            
+            response.raise_for_status()
+            data = response.json()
+            
+            states = data.get("states")
+            
+            # Active flights for the UI
+            self._raw_flights = []
+            
+            # Create a textual summary for the AI
+            summary_lines = []
+            summary_lines.append("--- CORPORATE JET TRACKER (OPENSKY NETWORK) ---")
+            
+            if not states:
+                summary_lines.append("No targeted corporate jets are currently airborne emitting ADS-B pings.")
+            else:
+                for state in states:
+                    icao24 = state[0]
+                    callsign = state[1].strip() if state[1] else "UNKNOWN"
+                    lon = state[5]
+                    lat = state[6]
+                    altitude_meters = state[7]
+                    on_ground = state[8]
+                    velocity_mps = state[9]
+                    
+                    owner_name = self.target_jets.get(icao24, "Unknown Jet")
+                    
+                    plane_details = {
+                        "owner": owner_name,
+                        "icao24": icao24,
+                        "callsign": callsign,
+                        "on_ground": on_ground,
+                    }
+                    
+                    if on_ground or altitude_meters is None:
+                        status_text = "ON GROUND/PARKED"
+                        plane_details["altitude"] = 0
+                        plane_details["speed"] = 0
+                        plane_details["location"] = f"Lat: {lat}, Lon: {lon}" if lat and lon else "Unknown Loc"
+                    else:
+                        altitude_ft = int(altitude_meters * 3.28084)
+                        speed_kts = int(velocity_mps * 1.94384) if velocity_mps else 0
+                        status_text = f"AIRBORNE (Alt: {altitude_ft} ft, Spd: {speed_kts} kts, Lat: {lat:.2f}, Lon: {lon:.2f})"
                         
-                        owner_name = self.target_jets.get(icao24, "Unknown Jet")
+                        plane_details["altitude"] = altitude_ft
+                        plane_details["speed"] = speed_kts
+                        plane_details["location"] = f"{lat:.2f}, {lon:.2f}"
                         
-                        plane_details = {
-                            "owner": owner_name,
-                            "icao24": icao24,
-                            "callsign": callsign,
-                            "on_ground": on_ground,
-                        }
-                        
-                        if on_ground or altitude_meters is None:
-                            status_text = "ON GROUND/PARKED"
-                            plane_details["altitude"] = 0
-                            plane_details["speed"] = 0
-                            plane_details["location"] = f"Lat: {lat}, Lon: {lon}" if lat and lon else "Unknown Loc"
-                        else:
-                            altitude_ft = int(altitude_meters * 3.28084)
-                            speed_kts = int(velocity_mps * 1.94384) if velocity_mps else 0
-                            status_text = f"AIRBORNE (Alt: {altitude_ft} ft, Spd: {speed_kts} kts, Lat: {lat:.2f}, Lon: {lon:.2f})"
-                            
-                            plane_details["altitude"] = altitude_ft
-                            plane_details["speed"] = speed_kts
-                            plane_details["location"] = f"{lat:.2f}, {lon:.2f}"
-                            
-                        self._raw_flights.append(plane_details)
-                        summary_lines.append(f"{owner_name} ({icao24}): {status_text}")
-                
-                # Also list the ones that didn't ping recently (assume on ground / inactive)
-                pinged_hexes = [s[0] for s in states] if states else []
-                for hex_code, owner in self.target_jets.items():
-                    if hex_code not in pinged_hexes:
-                        summary_lines.append(f"{owner} ({hex_code}): NO RECENT PING (Assumed Off/Landed)")
-                        self._raw_flights.append({
-                            "owner": owner,
-                            "icao24": hex_code,
-                            "callsign": "N/A",
-                            "on_ground": True,
-                            "altitude": 0,
-                            "speed": 0,
-                            "location": "No recent ping"
-                        })
-                
-                self._cached_summary = "\n".join(summary_lines)
-                self._last_update = datetime.now()
-                logger.info(f"[OpenSky Service] Updated {len(states) if states else 0} active flights.")
-                
+                    self._raw_flights.append(plane_details)
+                    summary_lines.append(f"{owner_name} ({icao24}): {status_text}")
+            
+            # Also list the ones that didn't ping recently
+            pinged_hexes = [s[0] for s in states] if states else []
+            for hex_code, owner in self.target_jets.items():
+                if hex_code not in pinged_hexes:
+                    summary_lines.append(f"{owner} ({hex_code}): NO RECENT PING (Assumed Off/Landed)")
+                    self._raw_flights.append({
+                        "owner": owner,
+                        "icao24": hex_code,
+                        "callsign": "N/A",
+                        "on_ground": True,
+                        "altitude": 0,
+                        "speed": 0,
+                        "location": "No recent ping"
+                    })
+            
+            self._cached_summary = "\n".join(summary_lines)
+            self._last_update = datetime.now()
+            logger.info(f"[OpenSky Service] Updated {len(states) if states else 0} active flights.")
+            
         except Exception as e:
             logger.error(f"[OpenSky Service] Failed to fetch data: {str(e)}")
 

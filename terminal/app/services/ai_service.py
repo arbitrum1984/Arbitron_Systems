@@ -7,27 +7,80 @@ is intentionally pragmatic: it first attempts to extract a ticker and
 intent, then conditionally aggregates structured context (finance
 technicals and news) before prompting the model for the final answer.
 
-The module depends on:
- - `google.genai` for model inference (async client usage).
- - `app.services.finance_service.finance_engine` for market data.
- - `app.services.search_service.search_engine` for simple news search.
-
-Errors in external dependencies are handled conservatively; the
-service returns explanatory text and a `None` ticker when failures
-occur so callers can render an appropriate UI fallback.
+Optimization notes:
+ - Sync blocking calls (yfinance, DDGS) are offloaded via asyncio.to_thread.
+ - Independent data fetches run in parallel via asyncio.gather.
+ - FRED context is cached in memory and refreshed periodically.
 """
 
 import json
+import asyncio
+import time
 from datetime import datetime
 from google import genai
 from app.core.config import settings
 from app.core.prompts import FINANCE_PROMPT
 
-# Tools and auxiliary services used to enrich the model context
+# Top-level imports (Issue #5 — no lazy imports inside functions)
 from app.services.finance_service import finance_engine
 from app.services.search_service import search_engine
 from app.services.trends_service import trends_engine
 from app.services.opensky_service import flight_tracker
+from app.database import crud
+
+# --- Issue #8: Unified asset map (replaces KNOWN_TICKERS + TICKER_READABLE) ---
+ASSET_MAP = {
+    # Commodities
+    "brent": {"ticker": "BZ=F", "name": "Brent crude oil"},
+    "brent oil": {"ticker": "BZ=F", "name": "Brent crude oil"},
+    "brent crude": {"ticker": "BZ=F", "name": "Brent crude oil"},
+    "crude oil": {"ticker": "CL=F", "name": "WTI crude oil"},
+    "wti": {"ticker": "CL=F", "name": "WTI crude oil"},
+    "wti oil": {"ticker": "CL=F", "name": "WTI crude oil"},
+    "oil": {"ticker": "CL=F", "name": "WTI crude oil"},
+    "gold": {"ticker": "GC=F", "name": "gold"},
+    "silver": {"ticker": "SI=F", "name": "silver"},
+    "platinum": {"ticker": "PL=F", "name": "platinum"},
+    "copper": {"ticker": "HG=F", "name": "copper futures"},
+    "natural gas": {"ticker": "NG=F", "name": "natural gas"},
+    "nat gas": {"ticker": "NG=F", "name": "natural gas"},
+    "wheat": {"ticker": "ZW=F", "name": "wheat futures"},
+    "corn": {"ticker": "ZC=F", "name": "corn futures"},
+    "soybeans": {"ticker": "ZS=F", "name": "soybean futures"},
+    # Indices
+    "s&p": {"ticker": "SPY", "name": "S&P 500"},
+    "s&p 500": {"ticker": "SPY", "name": "S&P 500"},
+    "sp500": {"ticker": "SPY", "name": "S&P 500"},
+    "nasdaq": {"ticker": "QQQ", "name": "Nasdaq"},
+    "dow": {"ticker": "DIA", "name": "Dow Jones"},
+    "dow jones": {"ticker": "DIA", "name": "Dow Jones"},
+    "russell": {"ticker": "IWM", "name": "Russell 2000"},
+    "dax": {"ticker": "^GDAXI", "name": "DAX"},
+    "nikkei": {"ticker": "^N225", "name": "Nikkei 225"},
+    # Crypto
+    "bitcoin": {"ticker": "BTC-USD", "name": "Bitcoin"},
+    "btc": {"ticker": "BTC-USD", "name": "Bitcoin"},
+    "ethereum": {"ticker": "ETH-USD", "name": "Ethereum"},
+    "eth": {"ticker": "ETH-USD", "name": "Ethereum"},
+    "solana": {"ticker": "SOL-USD", "name": "Solana"},
+    "sol": {"ticker": "SOL-USD", "name": "Solana"},
+    # Forex
+    "euro": {"ticker": "EURUSD=X", "name": "EUR/USD forex"},
+    "eur/usd": {"ticker": "EURUSD=X", "name": "EUR/USD forex"},
+    "dollar": {"ticker": "DX-Y.NYB", "name": "US Dollar Index"},
+    "dxy": {"ticker": "DX-Y.NYB", "name": "US Dollar Index"},
+    "yen": {"ticker": "JPY=X", "name": "USD/JPY forex"},
+    "usd/jpy": {"ticker": "JPY=X", "name": "USD/JPY forex"},
+    "pound": {"ticker": "GBPUSD=X", "name": "GBP/USD forex"},
+    "gbp": {"ticker": "GBPUSD=X", "name": "GBP/USD forex"},
+    # VIX
+    "vix": {"ticker": "^VIX", "name": "VIX volatility index"},
+}
+
+# Reverse lookup: ticker → readable name (auto-generated from ASSET_MAP)
+TICKER_TO_NAME = {}
+for _entry in ASSET_MAP.values():
+    TICKER_TO_NAME[_entry["ticker"]] = _entry["name"]
 
 
 class AIService:
@@ -35,84 +88,131 @@ class AIService:
 
     The service manages a configured generative model client and
     exposes an asynchronous `get_response` method that implements a
-    three-stage pipeline: extraction, enrichment, and final
-    generation. The constructor validates required configuration and
-    initializes the model client.
+    three-stage pipeline: extraction, enrichment, and final generation.
     """
 
     def __init__(self):
-        """Initialize the service and validate configuration.
-
-        Raises:
-            ValueError: If the required model API key is not configured.
-        """
+        """Initialize the service and validate configuration."""
         if not settings.GEMINI_API_KEY:
             raise ValueError("API Key missing")
 
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
         self.model_name = "gemini-flash-lite-latest"
 
+        # Issue #7: In-memory FRED cache (refreshed every hour)
+        self._fred_cache = ""
+        self._fred_cache_time = 0
+        self._FRED_CACHE_TTL = 3600  # 1 hour
+
+    def _get_fred_context(self) -> str:
+        """Return cached FRED macro context, refreshing if stale."""
+        now = time.time()
+        if now - self._fred_cache_time < self._FRED_CACHE_TTL and self._fred_cache:
+            return self._fred_cache
+
+        try:
+            fred_series_ids = crud.get_saved_fred_series()
+            if fred_series_ids:
+                fred_summary = []
+                for sid in fred_series_ids:
+                    obs = crud.get_fred_observations(sid)
+                    if obs:
+                        last_pt = obs[-1]
+                        fred_summary.append(f"{sid}: {last_pt['value']} (as of {last_pt['date']})")
+
+                if fred_summary:
+                    self._fred_cache = "\n--- MACROECONOMIC DATA (Official Cached) ---\n" + "\n".join(fred_summary)
+                else:
+                    self._fred_cache = ""
+            else:
+                self._fred_cache = ""
+
+            self._fred_cache_time = now
+        except Exception as e:
+            print(f"Error fetching FRED context: {e}")
+
+        return self._fred_cache
+
+    def _get_edgar_context(self, ticker: str) -> str:
+        """Fetch EDGAR SEC filing context for a ticker."""
+        try:
+            facts = crud.get_company_facts(ticker)
+            if not facts:
+                return ""
+
+            KEY_TAGS = [
+                "Revenues", "RevenueFromContractWithCustomer",
+                "RevenueFromContractWithCustomerExcludingAssessedTax",
+                "Revenue", "NetIncomeLoss", "ProfitLoss", "NetInformation",
+                "OperatingIncomeLoss", "EarningsPerShareBasic",
+                "Assets", "Liabilities", "StockholdersEquity",
+                "CashAndCashEquivalents", "CashAndCashEquivalentsAtCarryingValue"
+            ]
+
+            LABELS = {
+                "Revenues": "Total Revenue",
+                "RevenueFromContractWithCustomer": "Revenue",
+                "RevenueFromContractWithCustomerExcludingAssessedTax": "Revenue",
+                "Revenue": "Revenue",
+                "NetIncomeLoss": "Net Income",
+                "ProfitLoss": "Net Income",
+                "OperatingIncomeLoss": "Operating Income",
+                "EarningsPerShareBasic": "EPS",
+                "Assets": "Total Assets",
+                "Liabilities": "Total Liabilities",
+                "StockholdersEquity": "Equity",
+                "CashAndCashEquivalents": "Cash",
+                "CashAndCashEquivalentsAtCarryingValue": "Cash"
+            }
+
+            relevant_facts = [
+                f for f in facts
+                if f['form'] in ('10-K', '10-Q')
+                and any(tag in f['tag'] for tag in KEY_TAGS)
+            ]
+            relevant_facts.sort(key=lambda x: x['period'], reverse=True)
+
+            grouped = {}
+            for f in relevant_facts:
+                p = f['period']
+                if p not in grouped:
+                    grouped[p] = []
+                label = LABELS.get(f['tag'], f['tag'])
+                entry = f"{label}: {f['value']} {f['unit']}"
+                if not any(entry.startswith(label + ":") for entry in grouped[p]):
+                    grouped[p].append(entry)
+
+            edgar_summary = []
+            for p in list(grouped.keys())[:3]:
+                metrics_str = ", ".join(grouped[p])
+                edgar_summary.append(f"Period {p}: {metrics_str}")
+
+            if edgar_summary:
+                return "\n--- SEC EDGAR OFFICIAL FILINGS (Cached) ---\n" + "\n".join(edgar_summary)
+        except Exception as e:
+            print(f"Error fetching EDGAR context: {e}")
+
+        return ""
+
     async def get_response(self, user_query: str) -> dict:
         """Generate an informed assistant response for a user query.
 
-        The method implements a pragmatic pipeline with three stages:
-
-        1. Extraction: ask the model to return structured JSON that
-           contains an extracted `ticker` and an `intent` label.
-        2. Enrichment: if a ticker is detected, gather technical
-           indicators, basic company/fundamental data, and recent
-           news to build a contextual block that is passed to the
-           final prompt.
-        3. Generation: request the model to produce the final answer
-           using the assembled context and application prompts.
-
-        Args:
-            user_query (str): The raw text issued by the user.
-
-        Returns:
-            dict: A mapping with keys `text` (the assistant response
-                as string) and `ticker` (the detected ticker or None).
-
-        Notes:
-            - Network or model errors are caught; in error cases the
-              method returns a dictionary with an explanatory `text`
-              and `ticker` set to `None`.
-            - The extraction step asks the model to produce JSON and
-              expects to parse it; failures in parsing fall back to
-              `detected_ticker = None`.
+        Optimized pipeline:
+        - Issue #1: Sync calls wrapped in asyncio.to_thread
+        - Issue #2: Independent fetches run in parallel via asyncio.gather
+        - Issue #3: Uses consolidated get_full_analysis (single yfinance call)
+        - Issue #7: FRED data cached in memory
+        - Issue #8: Unified ASSET_MAP for ticker + readable name lookup
         """
 
-        # --- Well-known asset name → yfinance ticker mapping ---
-        KNOWN_TICKERS = {
-            # Commodities
-            "brent": "BZ=F", "brent oil": "BZ=F", "brent crude": "BZ=F",
-            "crude oil": "CL=F", "wti": "CL=F", "wti oil": "CL=F", "oil": "CL=F",
-            "gold": "GC=F", "silver": "SI=F", "platinum": "PL=F",
-            "copper": "HG=F", "natural gas": "NG=F", "nat gas": "NG=F",
-            "wheat": "ZW=F", "corn": "ZC=F", "soybeans": "ZS=F",
-            # Indices
-            "s&p": "SPY", "s&p 500": "SPY", "sp500": "SPY",
-            "nasdaq": "QQQ", "dow": "DIA", "dow jones": "DIA",
-            "russell": "IWM", "dax": "^GDAXI", "nikkei": "^N225",
-            # Crypto
-            "bitcoin": "BTC-USD", "btc": "BTC-USD",
-            "ethereum": "ETH-USD", "eth": "ETH-USD",
-            "solana": "SOL-USD", "sol": "SOL-USD",
-            # Forex
-            "euro": "EURUSD=X", "eur/usd": "EURUSD=X",
-            "dollar": "DX-Y.NYB", "dxy": "DX-Y.NYB",
-            "yen": "JPY=X", "usd/jpy": "JPY=X",
-            "pound": "GBPUSD=X", "gbp": "GBPUSD=X",
-            # VIX
-            "vix": "^VIX",
-        }
-
-        # Check if the query directly mentions a known asset
+        # --- Pre-detect ticker from known asset names ---
         query_lower = user_query.lower()
         pre_detected_ticker = None
-        for name, ticker_symbol in KNOWN_TICKERS.items():
+        pre_detected_name = None
+        for name, info in ASSET_MAP.items():
             if name in query_lower:
-                pre_detected_ticker = ticker_symbol
+                pre_detected_ticker = info["ticker"]
+                pre_detected_name = info["name"]
                 break
 
         # --- Stage 1: Extraction of ticker/intent ---
@@ -140,187 +240,69 @@ class AIService:
             data = json.loads(extraction_resp.text)
             detected_ticker = data.get("ticker")
         except Exception:
-            # If extraction fails, proceed without a detected ticker
             detected_ticker = None
 
-        # Use the pre-detected ticker from the known map as a fallback
+        # Fallback to pre-detected ticker from ASSET_MAP
         if not detected_ticker and pre_detected_ticker:
             detected_ticker = pre_detected_ticker
 
-        # --- Stage 2: Context enrichment (conditional on ticker) ---
+        # --- Stage 2: Context enrichment ---
         context_data = ""
         current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
 
         if detected_ticker:
             detected_ticker = detected_ticker.upper().strip()
 
-            # Technical indicators and fundamental data
-            tech_data = finance_engine.calculate_technicals(detected_ticker)
-            fund_data = finance_engine.get_ticker_data(detected_ticker)
+            # Get readable name from unified map
+            readable_name = TICKER_TO_NAME.get(detected_ticker, detected_ticker)
 
-            # Readable name for search queries (commodities have cryptic tickers)
-            TICKER_READABLE = {
-                "BZ=F": "Brent crude oil", "CL=F": "WTI crude oil",
-                "GC=F": "gold", "SI=F": "silver", "PL=F": "platinum",
-                "HG=F": "copper futures", "NG=F": "natural gas",
-                "ZW=F": "wheat futures", "ZC=F": "corn futures", "ZS=F": "soybean futures",
-                "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana",
-                "EURUSD=X": "EUR/USD forex", "DX-Y.NYB": "US Dollar Index",
-                "JPY=X": "USD/JPY forex", "GBPUSD=X": "GBP/USD forex",
-            }
-            readable_name = TICKER_READABLE.get(detected_ticker, detected_ticker)
-
-            # Use original user query for news search (it captures intent like "iran war")
+            # News search query uses the user's original intent
             news_query = f"{readable_name} {user_query}" if readable_name != user_query else f"{readable_name} news"
-            news_data = search_engine.search_news(news_query)
-            
-            # --- EDGAR DATA INJECTION ---
-            edgar_context = ""
-            try:
-                from app.database import crud
-                facts = crud.get_company_facts(detected_ticker)
-                
-                if facts:
-                    # Filter for Annual (10-K) data for key metrics
-                    # Define key tags we want to feed the AI
-                    KEY_TAGS = [
-                        # Revenue variants
-                        "Revenues", 
-                        "RevenueFromContractWithCustomer", 
-                        "RevenueFromContractWithCustomerExcludingAssessedTax", # AAPL specific
-                        "Revenue",
-                        # Net Income variants
-                        "NetIncomeLoss", 
-                        "ProfitLoss",
-                        "NetInformation",
-                        # Operating Income
-                        "OperatingIncomeLoss",
-                        # EPS
-                        "EarningsPerShareBasic",
-                        # Balance Sheet
-                        "Assets", 
-                        "Liabilities", 
-                        "StockholdersEquity",
-                        "CashAndCashEquivalents",
-                        "CashAndCashEquivalentsAtCarryingValue" 
-                    ]
 
-                    # Filter: Must be 10-K/10-Q AND match one of our key tags
-                    relevant_facts = [
-                        f for f in facts 
-                        if (f['form'] == '10-K' or f['form'] == '10-Q') 
-                        and any(tag in f['tag'] for tag in KEY_TAGS)
-                    ]
-                    
-                    # Sort recent first
-                    relevant_facts.sort(key=lambda x: x['period'], reverse=True)
-                    
-                    # Human-readable label map
-                    LABELS = {
-                        "Revenues": "Total Revenue",
-                        "RevenueFromContractWithCustomer": "Revenue",
-                        "RevenueFromContractWithCustomerExcludingAssessedTax": "Revenue",
-                        "Revenue": "Revenue",
-                        "NetIncomeLoss": "Net Income",
-                        "ProfitLoss": "Net Income",
-                        "OperatingIncomeLoss": "Operating Income",
-                        "EarningsPerShareBasic": "EPS",
-                        "Assets": "Total Assets",
-                        "Liabilities": "Total Liabilities",
-                        "StockholdersEquity": "Equity",
-                        "CashAndCashEquivalents": "Cash",
-                        "CashAndCashEquivalentsAtCarryingValue": "Cash"
-                    }
+            # Issue #1 + #2 + #3: Parallel async execution of ALL data fetches
+            # get_full_analysis does ONE yfinance call for fund+tech+patterns
+            # search_news and get_vix run in parallel alongside it
+            analysis_result, news_data, vix_val, edgar_context = await asyncio.gather(
+                asyncio.to_thread(finance_engine.get_full_analysis, detected_ticker),
+                asyncio.to_thread(search_engine.search_news, news_query),
+                asyncio.to_thread(finance_engine.get_vix),
+                asyncio.to_thread(self._get_edgar_context, detected_ticker),
+            )
 
-                    # Group by period
-                    grouped = {}
-                    for f in relevant_facts:
-                        p = f['period']
-                        if p not in grouped: grouped[p] = []
-                        
-                        # Use human label if available, else raw tag
-                        raw_tag = f['tag']
-                        label = LABELS.get(raw_tag, raw_tag)
-                        
-                        # Clean value (billions/millions for readability could be good, but raw numbers are safer for AI math)
-                        entry = f"{label}: {f['value']} {f['unit']}"
-                        
-                        # Simple deduplication
-                        if not any(entry.startswith(label + ":") for entry in grouped[p]):
-                            grouped[p].append(entry)
-                    
-                    # Take top 3 periods
-                    edgar_summary = []
-                    for p in list(grouped.keys())[:3]:
-                        # Join ALL relevant metrics for the period (we filtered them, so they are all important)
-                        metrics_str = ", ".join(grouped[p]) 
-                        edgar_summary.append(f"Period {p} ({grouped[p][0].split(':')[0] if grouped[p] else 'Report'}): {metrics_str}")
-                    
-                    if edgar_summary:
-                        edgar_context = "\n--- SEC EDGAR OFFICIAL FILINGS (Cached) ---\n" + "\n".join(edgar_summary)
-            except Exception as e:
-                print(f"Error fetching EDGAR context: {e}")
-            # ---------------------------
+            if analysis_result:
+                fund_data = analysis_result["fund"]
+                tech_data = analysis_result["tech"]
+                visual_patterns = analysis_result["patterns"]
 
-        # --- FRED (MACRO) CONTEXT INJECTION (Independent of Ticker) ---
-        fred_context = ""
-        try:
-            from app.database import crud
-            # Always load "important" series if they are in the DB
-            fred_series_ids = crud.get_saved_fred_series() 
-            
-            if fred_series_ids:
-                fred_summary = []
-                for sid in fred_series_ids:
-                    # Get last point
-                    obs = crud.get_fred_observations(sid)
-                    if obs:
-                        last_pt = obs[-1]
-                        fred_summary.append(f"{sid}: {last_pt['value']} (as of {last_pt['date']})")
-                
-                if fred_summary:
-                    fred_context = "\n--- MACROECONOMIC DATA (Official Cached) ---\n" + "\n".join(fred_summary)
+                context_data = f"""
+                --- GLOBAL MACRO ---
+                VIX: {vix_val}
 
-        except Exception as e:
-            print(f"Error fetching FRED context: {e}")
-        # --------------------------------------
+                --- LIVE MARKET DATA (Source: YFinance) ---
+                Date: {current_date}
+                Ticker: {detected_ticker}
+                Current Price: {fund_data.get('price')} {fund_data.get('currency')}
+                Sector: {fund_data.get('sector')}
 
-        if detected_ticker and fund_data:
-            # --- TEXT-BASED VISUAL PATTERN DETECTION ---
-            visual_patterns = finance_engine.detect_patterns(detected_ticker)
-            
-            # --- GLOBAL VIX DATA FETCH ---
-            vix_val = finance_engine.get_vix()
+                --- TECHNICAL INDICATORS ---
+                RSI (14): {tech_data.get('rsi') if tech_data else 'N/A'}
+                Trend (SMA200): {tech_data.get('trend') if tech_data else 'N/A'}
+                Visual Patterns: {visual_patterns}
 
-            # Assemble Context
-            context_data = f"""
-            --- GLOBAL MACRO ---
-            VIX: {vix_val}
+                {edgar_context}
+                {news_data}
+                """
+            else:
+                context_data = f"WARNING: Could not fetch real-time data for {detected_ticker}.\n{edgar_context}"
 
-            --- LIVE MARKET DATA (Source: YFinance) ---
-            Date: {current_date}
-            Ticker: {detected_ticker}
-            Current Price: {fund_data.get('price')} {fund_data.get('currency')}
-            Sector: {fund_data.get('sector')}
+        # Issue #7: Use cached FRED context (no DB hit on every message)
+        fred_context = self._get_fred_context()
 
-            --- TECHNICAL INDICATORS ---
-            RSI (14): {tech_data.get('rsi') if tech_data else 'N/A'}
-            Trend (SMA200): {tech_data.get('trend') if tech_data else 'N/A'}
-            Visual Patterns: {visual_patterns}
-
-            {edgar_context}
-            {news_data}
-            """
-        elif detected_ticker:
-             context_data = f"WARNING: Could not fetch real-time data for {detected_ticker}.\n{edgar_context}"
-        
-        # --- TRENDS (CONSUMER STRESS) CONTEXT INJECTION ---
+        # Trends and flights are already cached in memory by background tasks
         trends_context = trends_engine.get_summary()
-        
-        # --- FLIGHT TRACKER CONTEXT INJECTION ---
         flights_context = flight_tracker.get_summary()
 
-        # Append FRED, Trends, and Flights context globally
+        # Append global context
         context_data += f"\n{fred_context}\n\n{trends_context}\n\n{flights_context}"
 
         # --- Stage 3: Final prompt assembly and generation ---
