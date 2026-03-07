@@ -276,4 +276,9 @@ def get_backtest_plotly_data(run_id):
         with open(cache_path, 'w') as f: json.dump(result, f)
     except Exception: pass
 
+    # Manually free Qlib memory footprint for this scope
+    import gc
+    del recorder, pred, ic_data, perf_data
+    gc.collect()
+
     return result

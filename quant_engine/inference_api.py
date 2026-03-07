@@ -27,15 +27,22 @@ def get_qlib():
         _qlib_initialized = True
     return qlib
 
+_loaded_mtime = 0.0
+
 def get_model():
-    global loaded_model
-    if loaded_model is None:
-        if os.path.exists(MODEL_PATH):
-            print(f"Loading model from {MODEL_PATH}...")
+    global loaded_model, _loaded_mtime
+    
+    if os.path.exists(MODEL_PATH):
+        current_mtime = os.path.getmtime(MODEL_PATH)
+        if loaded_model is None or current_mtime > _loaded_mtime:
+            print(f"Loading/Updating model from {MODEL_PATH} (mtime: {current_mtime})...")
             loaded_model = joblib.load(MODEL_PATH)
+            _loaded_mtime = current_mtime
             print("Model loaded successfully.")
-        else:
-            print("WARNING: No trained model found.")
+    else:
+        if loaded_model is None:
+            print("WARNING: No trained model found at", MODEL_PATH)
+
     return loaded_model
 
 @app.on_event("startup")

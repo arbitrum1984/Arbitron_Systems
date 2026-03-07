@@ -11,17 +11,13 @@ DATA_DIR = "/data/qlib_data/source/my_data"
 QLIB_DIR = "/data/qlib_data/my_data"
 SCRIPT_PATH = "/app/scripts/dump_bin.py"
 
-# Топ-30 акций Китая + ИНДЕКС (обязательно!)
+# US Tech & Global + China Benchmark
 TICKERS = [
-    "600519.SS", "601318.SS", "600036.SS", "601012.SS", "300750.SZ", "002594.SZ",
-    "000858.SZ", "000001.SZ", "601888.SS", "600900.SS", "600030.SS", "600276.SS",
-    "601668.SS", "000333.SZ", "600887.SS", "601398.SS", "600000.SS", "601328.SS",
-    "601166.SS", "000651.SZ", "601988.SS", "601288.SS", "000725.SZ", "601319.SS",
-    "601818.SS", "600104.SS", "600585.SS", "000002.SZ", "601601.SS", "601628.SS",
-    "601169.SS", "600048.SS", "601857.SS", "601088.SS", "600016.SS", "002304.SZ",
-    "600309.SS", "000157.SZ", "002415.SZ", "000063.SZ", "603259.SS", "601211.SS",
-    "601688.SS", "000069.SZ", "600690.SS", "601939.SS", "600019.SS", "601111.SS",
-    "000300.SS" # Бенчмарк
+    # Top US Stocks for terminal predictions
+    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "BRK-B", "JPM", "V", 
+    "JNJ", "WMT", "PG", "MA", "HD", "CVX", "MRK", "KO", "PEP", "AVGO", "COST", "MCD",
+    # China
+    "600519.SS", "601318.SS", "000001.SZ", "000300.SS" # Бенчмарк
 ]
 
 def prepare_dirs():
@@ -61,16 +57,17 @@ def download_data():
             if not all(col in df.columns for col in needed): continue
 
             # ИМЕНОВАНИЕ ФАЙЛОВ (КРИТИЧНО!)
-            # 000300.SS -> sh000300 (Бенчмарк)
-            # 600519.SS -> sh600519
-            # 000001.SZ -> sz000001
-            code = t.split('.')[0]
-            exch = t.split('.')[1]
-            if code == "000300": # Особая обработка для индекса
-                qlib_code = "sh000300"
+            if '.' in t:
+                code = t.split('.')[0]
+                exch = t.split('.')[1]
+                if code == "000300": # Особая обработка для индекса
+                    qlib_code = "sh000300"
+                else:
+                    prefix = "sh" if exch == "SS" else "sz"
+                    qlib_code = f"{prefix}{code}"
             else:
-                prefix = "sh" if exch == "SS" else "sz"
-                qlib_code = f"{prefix}{code}"
+                # Американские тикеры без суффикса (aapl, msft)
+                qlib_code = t.lower()
 
             df[needed].to_csv(f"{DATA_DIR}/{qlib_code}.csv", index=False)
             print(f"OK: {qlib_code}")

@@ -1,5 +1,5 @@
-# quant_engine/tasks.py
 import os
+import gc
 import pandas as pd
 from celery import Celery
 from scripts.train import train_model
@@ -41,7 +41,8 @@ def run_full_pipeline():
     model, score = train_model("configs/workflow_config.yaml", "daily_exp")
 
     # 4. Сохранение для Online Inference
-    save_path = "/data/models/latest_model.pkl"
+    save_path = "mlruns/models/latest_model.joblib"
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
     joblib.dump(model, save_path)
 
     return "Pipeline Finished. Model Updated."
@@ -135,6 +136,10 @@ def run_backtest_task(start_time: str, end_time: str):
             else:
                 R.save_objects(report=report, positions=positions, pred_score=pred_score)
             
+        # Manually trigger garbage collection to prevent Pandas memory leaks in Docker worker
+        del report, positions, pred_score, label
+        gc.collect()
+
         return f"Backtest from {start_time} to {end_time} finished."
     except Exception as e:
         import traceback
