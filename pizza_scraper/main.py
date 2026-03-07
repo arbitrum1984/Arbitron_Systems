@@ -41,7 +41,7 @@ TARGETS = [
     },
 ]
 
-SCRAPE_INTERVAL = 300  # 5 minutes
+SCRAPE_INTERVAL = 900  # 15 minutes
 
 # ── Cache ──────────────────────────────────────────────────────────
 _cached_results: list = []

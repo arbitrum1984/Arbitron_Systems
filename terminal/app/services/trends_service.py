@@ -38,6 +38,8 @@ class TrendsService:
         
         # Pytrends allows max 5 terms per request, so we chunk them
         trends_data = {}
+        historical_buffer = None
+        
         try:
             for i in range(0, len(all_terms), 5):
                 chunk = all_terms[i:i+5]
@@ -46,6 +48,10 @@ class TrendsService:
                 
                 if df.empty:
                     continue
+                
+                # Drop overlapping partial indicator to avoid DataFrame column explosion on join
+                if 'isPartial' in df.columns:
+                    df = df.drop(columns=['isPartial'])
                     
                 # Store the mean interest over the last month, and the very last value
                 for term in chunk:
@@ -54,12 +60,15 @@ class TrendsService:
                         mean_val = df[term].mean()
                         trends_data[term] = {"recent": float(recent_val), "mean": float(mean_val)}
                 
-                # We also need to store the raw timeseries for the dashboard charts
-                if self._historical_data is None:
-                    self._historical_data = df.copy()
+                # Construct fresh historical data buffer for this run
+                if historical_buffer is None:
+                    historical_buffer = df.copy()
                 else:
-                    self._historical_data = self._historical_data.join(df, how='outer')
-                        
+                    historical_buffer = historical_buffer.join(df, how='outer')
+                    
+            if historical_buffer is not None:
+                self._historical_data = historical_buffer
+                
             return trends_data
             
         except Exception as e:

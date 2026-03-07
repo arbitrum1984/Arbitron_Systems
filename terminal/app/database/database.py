@@ -19,6 +19,7 @@ The schema contains three tables:
 
 import sqlite3
 import os
+from contextlib import contextmanager
 from app.core.config import settings
 
 # Ensure the directory for the SQLite file exists
@@ -48,7 +49,8 @@ class Database:
         """
         self.db_path = settings.DB_PATH
 
-    def get_connection(self) -> sqlite3.Connection:
+    @contextmanager
+    def get_connection(self):
         """Create and return a SQLite connection for the configured path.
 
         The returned connection is configured with `row_factory =
@@ -61,7 +63,10 @@ class Database:
         """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     def init_db(self) -> None:
         """Create the application's database schema if it does not exist.
