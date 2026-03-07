@@ -42,6 +42,16 @@ createApp({
         const backtestData = ref(null);
         const backtestStartDate = ref('');
         const backtestEndDate = ref('');
+        // Google Trends State
+        const isTrendsLoading = ref(false);
+        const trendsError = ref(null);
+
+        // OpenSky Flights State
+        const isFlightsLoading = ref(false);
+        const flightsError = ref(null);
+        const flightsLastUpdate = ref('');
+        const activeFlights = ref([]);
+        const groundedFlights = ref([]);
 
         // Docker Logs State
         const selectedLogContainer = ref('arbitron_terminal');
@@ -65,6 +75,119 @@ createApp({
                     const el = document.querySelector('.log-viewer-container');
                     if (el) el.scrollTop = el.scrollHeight;
                 });
+            }
+        };
+        const fetchTrendsData = async () => {
+            if (document.getElementById('window-trends').style.display === 'none') return;
+            isTrendsLoading.value = true;
+            trendsError.value = null;
+
+            try {
+                const r = await fetch('/api/trends');
+                if (!r.ok) throw new Error("Failed to load Trends data.");
+                const data = await r.json();
+
+                if (data.error) {
+                    trendsError.value = data.error;
+                    return;
+                }
+
+                // Render Distress Chart
+                const distressTraces = Object.keys(data.distress).map(term => ({
+                    x: data.dates,
+                    y: data.distress[term],
+                    name: term,
+                    mode: 'lines',
+                    line: { shape: 'spline', smoothing: 1.3 },
+                    fill: 'tozeroy'
+                }));
+
+                Plotly.newPlot('trends-chart-distress', distressTraces, {
+                    title: { text: 'DIstress / Panic Indicators', font: { color: '#ff4444', size: 12 } },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    xaxis: { gridcolor: '#222', tickfont: { color: '#666' } },
+                    yaxis: { gridcolor: '#222', tickfont: { color: '#666' }, range: [0, 100] },
+                    margin: { l: 40, r: 20, t: 30, b: 30 },
+                    legend: { font: { color: '#888' }, orientation: 'h', y: -0.2 }
+                }, { responsive: true, displayModeBar: false });
+
+                // Render Luxury Chart
+                const luxuryTraces = Object.keys(data.luxury).map(term => ({
+                    x: data.dates,
+                    y: data.luxury[term],
+                    name: term,
+                    mode: 'lines',
+                    line: { shape: 'spline', smoothing: 1.3 }
+                }));
+
+                Plotly.newPlot('trends-chart-luxury', luxuryTraces, {
+                    title: { text: 'Luxury / Disposable Income Indicators', font: { color: '#44ff44', size: 12 } },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    xaxis: { gridcolor: '#222', tickfont: { color: '#666' } },
+                    yaxis: { gridcolor: '#222', tickfont: { color: '#666' }, range: [0, 100] },
+                    margin: { l: 40, r: 20, t: 30, b: 30 },
+                    legend: { font: { color: '#888' }, orientation: 'h', y: -0.2 }
+                }, { responsive: true, displayModeBar: false });
+
+            } catch (e) {
+                trendsError.value = e.message;
+            } finally {
+                isTrendsLoading.value = false;
+            }
+        };
+
+        const fetchFlightData = async () => {
+            isFlightsLoading.value = true;
+            flightsError.value = null;
+
+            try {
+                const r = await fetch('/api/flights');
+                if (!r.ok) throw new Error("Failed to load flight tracking data.");
+                const data = await r.json();
+
+                if (data.error) {
+                    flightsError.value = data.error;
+                    return;
+                }
+
+                if (data.last_update) {
+                    const d = new Date(data.last_update);
+                    flightsLastUpdate.value = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                } else {
+                    flightsLastUpdate.value = 'Awaiting first scan...';
+                }
+
+                // Partition by whether they are airborne
+                activeFlights.value = [];
+                groundedFlights.value = [];
+
+                const flights = data.flights || [];
+
+                if (flights.length === 0) {
+                    // Data not ready yet — retry in 10 seconds
+                    setTimeout(() => fetchFlightData(), 10000);
+                    return;
+                }
+
+                flights.forEach(f => {
+                    if (f.on_ground || f.altitude === 0) {
+                        groundedFlights.value.push(f);
+                    } else {
+                        activeFlights.value.push(f);
+                    }
+                });
+
+                // Sort active flights by speed (highest first)
+                activeFlights.value.sort((a, b) => b.speed - a.speed);
+                // Sort grounded alphabetically
+                groundedFlights.value.sort((a, b) => a.owner.localeCompare(b.owner));
+
+            } catch (e) {
+                flightsError.value = e.message;
+            } finally {
+                isFlightsLoading.value = false;
             }
         };
 
@@ -253,6 +376,8 @@ createApp({
                 if (id === 'window-fred') fetchSavedFredSeries();
                 if (id === 'window-edgar') fetchSavedCompanies();
                 if (id === 'window-logs') fetchLogs();
+                if (id === 'window-trends') fetchTrendsData();
+                if (id === 'window-flights') fetchFlightData();
             } else {
                 el.style.display = 'none';
                 saveWindowLayout(id, { visible: false });
@@ -268,7 +393,7 @@ createApp({
             else createNewChat();
 
             nextTick(() => {
-                ['window-intel', 'window-3d', 'window-pizza', 'window-edgar', 'window-fred', 'window-tradebot', 'window-logs'].forEach(id => {
+                ['window-intel', 'window-3d', 'window-pizza', 'window-edgar', 'window-fred', 'window-tradebot', 'window-logs', 'window-trends', 'window-flights'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) setupWindow(el);
                 });
@@ -1058,7 +1183,19 @@ createApp({
             fetch3DData, addFavorite, removeFavorite, toggleVoice, toggleWindow,
             backtestList, selectedRunId, backtestData, fetchBacktestList, loadBacktestDetails, triggerNewTraining,
             backtestStartDate, backtestEndDate, runCustomBacktest,
-            selectedLogContainer, containerLogs, isLogsLoading, fetchLogs
+            selectedLogContainer,
+            containerLogs,
+            isLogsLoading,
+            fetchLogs,
+            isTrendsLoading,
+            trendsError,
+            fetchTrendsData,
+            isFlightsLoading,
+            flightsError,
+            flightsLastUpdate,
+            activeFlights,
+            groundedFlights,
+            fetchFlightData
         };
     }
 }).mount('#app');

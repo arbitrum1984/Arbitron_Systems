@@ -17,7 +17,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ARBI OS v2.0</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=2">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
@@ -55,88 +55,6 @@
                     <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
                     <line x1="12" y1="19" x2="12" y2="23"></line>
                     <line x1="8" y1="23" x2="16" y2="23"></line>
-                </svg></div>
-
-
-            <!-- RSS Feed Icon -->
-            <div class="nav-item" @click="toggleWindow('window-intel')" title="RSS Feed">
-                <svg class="icon-svg" viewBox="0 0 24 24">
-                    <path d="M4 11a9 9 0 0 1 9 9"></path>
-                    <path d="M4 4a16 16 0 0 1 16 16"></path>
-                    <circle cx="5" cy="19" r="1"></circle>
-                </svg>
-            </div>
-
-            <!-- Pizza Index Icon -->
-            <div class="nav-item" @click="toggleWindow('window-pizza')" title="Pizza Index">
-                <svg class="icon-svg" viewBox="0 0 24 24">
-                    <path d="M15 11h.01"></path>
-                    <path d="M11 15h.01"></path>
-                    <path d="M16 16h.01"></path>
-                    <path d="m2 16 20 6-6-20A20 20 0 0 0 2 16"></path>
-                    <path d="M5.71 17.11a17.04 17.04 0 0 1 11.4-11.4"></path>
-                </svg>
-            </div>
-
-            <div class="nav-item" @click="showFavorites = true"><svg class="icon-svg" viewBox="0 0 24 24">
-                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-                </svg></div>
-
-            <!-- EDGAR Icon -->
-            <div class="nav-item" @click="toggleWindow('window-edgar'); fetchSavedCompanies();"
-                title="SEC EDGAR Financials">
-                <svg class="icon-svg" viewBox="0 0 24 24">
-                    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14h-2v-2h2zm0-4h-2V7h2z" /><text x="8" y="16"
-                        fill="currentColor" font-weight="bold" font-size="12">$</text>
-                </svg>
-            </div>
-
-            <!-- FRED Icon -->
-            <div class="nav-item" @click="toggleWindow('window-fred'); fetchSavedFredSeries();"
-                title="Macro Economics (FRED)">
-                <svg class="icon-svg" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none" />
-                    <text x="7" y="16" fill="currentColor" font-weight="bold" font-size="12">M</text>
-                </svg>
-            </div>
-
-            <!-- Trade Bot Icon -->
-            <div class="nav-item" @click="toggleWindow('window-tradebot')" title="Trade Bot">
-                <svg class="icon-svg" viewBox="0 0 24 24">
-                    <path d="M12 8V4H8"></path>
-                    <rect width="16" height="12" x="4" y="8" rx="2"></rect>
-                    <path d="M2 14h2"></path>
-                    <path d="M20 14h2"></path>
-                    <path d="M15 13v2"></path>
-                    <path d="M9 13v2"></path>
-                </svg>
-            </div>
-
-            <!-- Docker Logs Icon -->
-            <div class="nav-item" @click="toggleWindow('window-logs'); fetchLogs();" title="Docker Logs">
-                <svg class="icon-svg" viewBox="0 0 24 24">
-                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" fill="none" stroke="currentColor"
-                        stroke-width="2"></rect>
-                    <line x1="7" y1="2" x2="7" y2="22" stroke="currentColor" stroke-width="2"></line>
-                    <line x1="17" y1="2" x2="17" y2="22" stroke="currentColor" stroke-width="2"></line>
-                    <line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"></line>
-                    <line x1="2" y1="7" x2="22" y2="7" stroke="currentColor" stroke-width="2"></line>
-                    <line x1="2" y1="17" x2="22" y2="17" stroke="currentColor" stroke-width="2"></line>
-                </svg>
-            </div>
-
-            <div class="nav-item" @click="toggleWindow('window-3d')"><svg class="icon-svg" viewBox="0 0 24 24">
-                    <path
-                        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
-                    </path>
-                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                </svg></div>
-            <div class="nav-item" @click="showSettings = true"><svg class="icon-svg" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path
-                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-                    </path>
                 </svg></div>
         </div>
 
@@ -614,50 +532,269 @@
                 </div>
             </div>
 
-            <!-- **Modals**: ephemeral overlays for voice, favorites, and
-               other modal interactions. These are rendered conditionally. -->
-            <div v-if="showVoice" class="modal-mask" @click.self="showVoice = false">
-                <div class="modal-body">
-                    <h3>VOICE UPLINK</h3>
-                    <div>{{ voiceStatusText }}</div>
+            <!-- **Google Trends Window** -->
+            <div id="window-trends" class="chart-card"
+                style="top: 180px; left: 180px; width: 700px; height: 500px; display: none; flex-direction: column;">
+                <div class="chart-title-bar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="color: #8ab4f8;">📈</span>
+                        <span>Google Trends: Consumer Stress Index</span>
+                    </div>
+                    <span class="chart-remove-btn" @click="toggleWindow('window-trends')">
+                        <svg class="del-icon-svg" viewBox="0 0 24 24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </span>
+                </div>
+
+                <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #0a0a0a;">
+                    <div v-if="isTrendsLoading"
+                        style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666;">
+                        [ LOADING GOOGLE TRENDS DATA... ]
+                    </div>
+                    <div v-if="trendsError"
+                        style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--danger);">
+                        {{ trendsError }}
+                    </div>
+
+                    <div v-show="!isTrendsLoading && !trendsError"
+                        style="flex: 1; padding: 20px; display: flex; flex-direction: column; overflow-y: auto;">
+                        <p style="font-size: 11px; color: #888; margin-bottom: 20px;">
+                            Analysis of search engine queries grouped by economic distress (payday loans, recession,
+                            unemployment)
+                            vs luxury consumption (business class flights, luxury watches, fine dining).
+                        </p>
+
+                        <div id="trends-chart-distress" style="width: 100%; height: 200px; margin-bottom: 20px;"></div>
+                        <div id="trends-chart-luxury" style="width: 100%; height: 200px;"></div>
+                    </div>
                 </div>
             </div>
-            <div v-if="showFavorites" class="modal-mask" @click.self="showFavorites = false">
-                <div class="modal-body" style="width: 400px;">
-                    <h3>WATCHLIST</h3>
-                    <div style="display: flex; gap: 8px; margin-bottom: 20px; align-items: flex-start;">
-                        <div style="flex: 1; display: flex; flex-direction: column;">
-                            <input type="text" v-model="newFav" @keyup.enter="addFavorite" placeholder="ADD TICKER..."
-                                style="width: 100%; background: #111; border: 1px solid #444; color: #fff; padding: 10px; text-transform: uppercase; margin: 0;">
-                        </div>
-                        <button class="modal-btn" @click="addFavorite"
-                            style="width: 40px; height: 38px; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center; font-size: 20px;">
-                            +
-                        </button>
+
+            <!-- **Corporate Flights Window** -->
+            <div id="window-flights" class="chart-card"
+                style="top: 200px; left: 200px; width: 600px; height: 500px; display: none; flex-direction: column;">
+                <div class="chart-title-bar">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="color: #4CAF50;">✈️</span>
+                        <span>OpenSky: Corporate Jet Tracker</span>
                     </div>
-                    <div style="max-height: 400px; overflow-y: auto;">
-                        <div v-for="t in favorites" :key="t"
-                            style="display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #222;">
-                            <span style="font-weight: bold; letter-spacing: 1px;">{{ t }}</span>
-                            <div style="display: flex; gap: 8px;">
-                                <button class="modal-btn" @click="openTickerChart(t)"
-                                    style="font-size: 10px; padding: 4px 8px; width: 100px;">
-                                    OPEN CHART
-                                </button>
-                                <button class="modal-btn" @click="removeFavorite(t)"
-                                    style="font-size: 10px; padding: 4px 8px; background: #300; border-color: #500; color: #f55;">
-                                    REMOVE
-                                </button>
+                    <span class="chart-remove-btn" @click="toggleWindow('window-flights')">
+                        <svg class="del-icon-svg" viewBox="0 0 24 24">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </span>
+                </div>
+
+                <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #0a0a0a;">
+                    <div v-if="isFlightsLoading"
+                        style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666;">
+                        [ GATHERING SATELLITE PINGS... ]
+                    </div>
+                    <div v-if="flightsError"
+                        style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--danger);">
+                        {{ flightsError }}
+                    </div>
+
+                    <div v-show="!isFlightsLoading && !flightsError"
+                        style="flex: 1; padding: 15px; display: flex; flex-direction: column; overflow-y: auto;">
+
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px;">
+                            <span style="font-size: 11px; color: #888;">Live tracking of target executives &
+                                billionaires.</span>
+                            <span style="font-size: 10px; color: #555;">Updated: {{ flightsLastUpdate }}</span>
+                        </div>
+
+                        <!-- Active Flights -->
+                        <div style="margin-bottom: 20px;">
+                            <h4
+                                style="color: #4CAF50; margin-bottom: 10px; font-size: 12px; border-left: 2px solid #4CAF50; padding-left: 5px;">
+                                AIRBORNE</h4>
+                            <div v-if="activeFlights.length === 0"
+                                style="color: #666; font-size: 11px; font-style: italic;">No targets currently airborne.
+                            </div>
+
+                            <div v-for="plane in activeFlights" :key="plane.icao24"
+                                style="background: #111; border: 1px solid #222; border-radius: 4px; padding: 10px; margin-bottom: 8px;">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                    <strong style="color: #ccc; font-size: 13px;">{{ plane.owner }}</strong>
+                                    <span class="pulse-dot"></span>
+                                </div>
+                                <div
+                                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 11px; color: #888;">
+                                    <div>Callsign: <span style="color: #aaa;">{{ plane.callsign || 'N/A' }}</span></div>
+                                    <div>Altitude: <span style="color: #aaa;">{{ plane.altitude }} ft</span></div>
+                                    <div>Speed: <span style="color: #aaa;">{{ plane.speed }} kts</span></div>
+                                    <div>Pos: <span style="color: #aaa;">{{ plane.location }}</span></div>
+                                </div>
                             </div>
                         </div>
-                        <div v-if="favorites.length === 0" style="padding: 20px; text-align: center; color: #555;">
-                            Your watchlist is empty.
+
+                        <!-- Grounded Flights -->
+                        <div>
+                            <h4
+                                style="color: #ff9800; margin-bottom: 10px; font-size: 12px; border-left: 2px solid #ff9800; padding-left: 5px;">
+                                GROUNDED / NO SIGNAL</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <div v-for="plane in groundedFlights" :key="plane.icao24"
+                                    style="background: #0d0d0d; border: 1px dashed #222; border-radius: 4px; padding: 6px; font-size: 10px; color: #666;">
+                                    <div>{{ plane.owner }}</div>
+                                    <div style="color: #444;">{{ plane.location === 'No recent ping' ? 'Offline' :
+                                        'Parked' }}</div>
+                                </div>
+                            </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+        </div> <!-- end dashboard-panel -->
+
+        <!-- **Modals**: ephemeral overlays for voice, favorites, and
+               other modal interactions. These are rendered conditionally. -->
+        <div v-if="showVoice" class="modal-mask" @click.self="showVoice = false">
+            <div class="modal-body">
+                <h3>VOICE UPLINK</h3>
+                <div>{{ voiceStatusText }}</div>
+            </div>
+        </div>
+        <div v-if="showFavorites" class="modal-mask" @click.self="showFavorites = false">
+            <div class="modal-body" style="width: 400px;">
+                <h3>WATCHLIST</h3>
+                <div style="display: flex; gap: 8px; margin-bottom: 20px; align-items: flex-start;">
+                    <div style="flex: 1; display: flex; flex-direction: column;">
+                        <input type="text" v-model="newFav" @keyup.enter="addFavorite" placeholder="ADD TICKER..."
+                            style="width: 100%; background: #111; border: 1px solid #444; color: #fff; padding: 10px; text-transform: uppercase; margin: 0;">
+                    </div>
+                    <button class="modal-btn" @click="addFavorite"
+                        style="width: 40px; height: 38px; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                        +
+                    </button>
+                </div>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <div v-for="t in favorites" :key="t"
+                        style="display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #222;">
+                        <span style="font-weight: bold; letter-spacing: 1px;">{{ t }}</span>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="modal-btn" @click="openTickerChart(t)"
+                                style="font-size: 10px; padding: 4px 8px; width: 100px;">
+                                OPEN CHART
+                            </button>
+                            <button class="modal-btn" @click="removeFavorite(t)"
+                                style="font-size: 10px; padding: 4px 8px; background: #300; border-color: #500; color: #f55;">
+                                REMOVE
+                            </button>
+                        </div>
+                    </div>
+                    <div v-if="favorites.length === 0" style="padding: 20px; text-align: center; color: #555;">
+                        Your watchlist is empty.
                     </div>
                 </div>
             </div>
         </div>
-        <script src="/static/app.js"></script>
+
+        <!-- **Right Sidebar**: window launcher controls -->
+        <div class="sidebar-right">
+            <!-- RSS Feed -->
+            <div class="nav-item" @click="toggleWindow('window-intel')" title="RSS Feed">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M4 11a9 9 0 0 1 9 9"></path>
+                    <path d="M4 4a16 16 0 0 1 16 16"></path>
+                    <circle cx="5" cy="19" r="1"></circle>
+                </svg>
+            </div>
+            <!-- Pizza Index -->
+            <div class="nav-item" @click="toggleWindow('window-pizza')" title="Pizza Index">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M15 11h.01"></path>
+                    <path d="M11 15h.01"></path>
+                    <path d="M16 16h.01"></path>
+                    <path d="m2 16 20 6-6-20A20 20 0 0 0 2 16"></path>
+                    <path d="M5.71 17.11a17.04 17.04 0 0 1 11.4-11.4"></path>
+                </svg>
+            </div>
+            <!-- Watchlist -->
+            <div class="nav-item" @click="showFavorites = true" title="Watchlist">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+            </div>
+            <!-- EDGAR -->
+            <div class="nav-item" @click="toggleWindow('window-edgar'); fetchSavedCompanies();" title="SEC EDGAR">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14h-2v-2h2zm0-4h-2V7h2z" /><text x="8" y="16"
+                        fill="currentColor" font-weight="bold" font-size="12">$</text>
+                </svg>
+            </div>
+            <!-- FRED -->
+            <div class="nav-item" @click="toggleWindow('window-fred'); fetchSavedFredSeries();" title="Macro (FRED)">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none" />
+                    <text x="7" y="16" fill="currentColor" font-weight="bold" font-size="12">M</text>
+                </svg>
+            </div>
+            <!-- Trade Bot -->
+            <div class="nav-item" @click="toggleWindow('window-tradebot')" title="Trade Bot">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M12 8V4H8"></path>
+                    <rect width="16" height="12" x="4" y="8" rx="2"></rect>
+                    <path d="M2 14h2"></path>
+                    <path d="M20 14h2"></path>
+                    <path d="M15 13v2"></path>
+                    <path d="M9 13v2"></path>
+                </svg>
+            </div>
+            <!-- Flights Tracker -->
+            <div class="nav-item" @click="toggleWindow('window-flights'); fetchFlightData();" title="Corporate Jets">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M22 2L11 13"></path>
+                    <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+                </svg>
+            </div>
+            <!-- Trends -->
+            <div class="nav-item" @click="toggleWindow('window-trends'); fetchTrendsData();" title="Google Trends">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path d="M3 3v18h18"></path>
+                    <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path>
+                </svg>
+            </div>
+            <!-- Docker Logs -->
+            <div class="nav-item" @click="toggleWindow('window-logs'); fetchLogs();" title="Docker Logs">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" fill="none" stroke="currentColor"
+                        stroke-width="2"></rect>
+                    <line x1="7" y1="2" x2="7" y2="22" stroke="currentColor" stroke-width="2"></line>
+                    <line x1="17" y1="2" x2="17" y2="22" stroke="currentColor" stroke-width="2"></line>
+                    <line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"></line>
+                    <line x1="2" y1="7" x2="22" y2="7" stroke="currentColor" stroke-width="2"></line>
+                    <line x1="2" y1="17" x2="22" y2="17" stroke="currentColor" stroke-width="2"></line>
+                </svg>
+            </div>
+            <!-- 3D Visualization -->
+            <div class="nav-item" @click="toggleWindow('window-3d')" title="3D View">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <path
+                        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                    </path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+            </div>
+            <!-- Settings -->
+            <div class="nav-item" @click="showSettings = true" title="Settings">
+                <svg class="icon-svg" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                    </path>
+                </svg>
+            </div>
+        </div>
+        <script src="/static/app.js?v=3"></script>
 </body>
 
 </html>

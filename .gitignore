@@ -110,3 +110,12 @@ terminal/consent.html
 # Cache and ML Logs
 .cache_backtests/
 mlruns/
+
+# Gemini AI agent artifacts
+.gemini/
+
+# Misc scripts in terminal/scripts (all are debug/scratch)
+terminal/scripts/head_ai.py
+
+# Screenshots (keep only what you manually add)
+nr_screenshot.jpg

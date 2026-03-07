@@ -29,6 +29,9 @@ from app.services.twitter_service import twitter_service
 from app.services.rss_service import rss_service
 from app.services.pizza_service import pizza_service
 from app.services.core_engine_service import core_engine
+from app.services.trends_service import trends_engine
+from app.services.opensky_service import flight_tracker
+from app.services.docker_service import DockerService # Added as per user's implied change
 
 # 1. Poject app instance
 app = FastAPI(
@@ -110,6 +113,16 @@ async def run_backtest(req: dict):
 async def get_backtest_details(run_id: str):
     return await core_engine.get_backtest_results(run_id)
 
+@app.get("/api/trends")
+async def get_trends_data():
+    """Return historical JSON data for the Trends Dashboard"""
+    return trends_engine.get_historical_data()
+
+@app.get("/api/flights")
+async def get_flight_data():
+    """Return active flight tracking data from OpenSky"""
+    return flight_tracker.get_raw_flights()
+
 # --- FRONTEND ENDPOINTS ---
 @app.get("/")
 async def read_root():
@@ -189,9 +202,38 @@ async def start_intel_engine():
                 print(f" [RSS Error]: {e}")
             await asyncio.sleep(300)
 
+    async def trends_loop():
+        """
+        Poll Google Trends periodically to update the Consumer Stress Index.
+        Sleeps for 14400 seconds (4 hours) between iterations.
+        """
+        print(" [Trends Service] Started polling...")
+        # Initial wait to not block immediately on startup, or just start
+        while True:
+            try:
+                await trends_engine.update_trends_background()
+            except Exception as e:
+                print(f" [Trends Error]: {e}")
+            await asyncio.sleep(14400) # 4 hours
+
+    async def opensky_loop():
+        """
+        Poll OpenSky Network for private jet tracking.
+        Sleeps for 300 seconds (5 minutes) between iterations to avoid rate limits.
+        """
+        print(" [OpenSky Service] Started polling...")
+        while True:
+            try:
+                await flight_tracker.update_flights_background()
+            except Exception as e:
+                print(f" [OpenSky Error]: {e}")
+            await asyncio.sleep(300)
+
     # Schedule concurrent background tasks
     asyncio.create_task(twitter_loop())
     asyncio.create_task(rss_loop())
+    asyncio.create_task(trends_loop())
+    asyncio.create_task(opensky_loop())
 
     print(" All Intelligence Systems are ONLINE.")
 

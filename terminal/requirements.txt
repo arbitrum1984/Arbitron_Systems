@@ -14,5 +14,5 @@ plotly
 numpy
 scipy
 yfinance
-ddgs
 docker
+pytrends==4.9.2

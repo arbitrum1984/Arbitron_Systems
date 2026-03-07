@@ -26,6 +26,8 @@ from app.core.prompts import FINANCE_PROMPT
 # Tools and auxiliary services used to enrich the model context
 from app.services.finance_service import finance_engine
 from app.services.search_service import search_engine
+from app.services.trends_service import trends_engine
+from app.services.opensky_service import flight_tracker
 
 
 class AIService:
@@ -48,7 +50,7 @@ class AIService:
             raise ValueError("API Key missing")
 
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        self.model_name = "gemini-2.5-flash-lite"
+        self.model_name = "gemini-flash-lite-latest"
 
     async def get_response(self, user_query: str) -> dict:
         """Generate an informed assistant response for a user query.
@@ -80,11 +82,50 @@ class AIService:
               `detected_ticker = None`.
         """
 
+        # --- Well-known asset name → yfinance ticker mapping ---
+        KNOWN_TICKERS = {
+            # Commodities
+            "brent": "BZ=F", "brent oil": "BZ=F", "brent crude": "BZ=F",
+            "crude oil": "CL=F", "wti": "CL=F", "wti oil": "CL=F", "oil": "CL=F",
+            "gold": "GC=F", "silver": "SI=F", "platinum": "PL=F",
+            "copper": "HG=F", "natural gas": "NG=F", "nat gas": "NG=F",
+            "wheat": "ZW=F", "corn": "ZC=F", "soybeans": "ZS=F",
+            # Indices
+            "s&p": "SPY", "s&p 500": "SPY", "sp500": "SPY",
+            "nasdaq": "QQQ", "dow": "DIA", "dow jones": "DIA",
+            "russell": "IWM", "dax": "^GDAXI", "nikkei": "^N225",
+            # Crypto
+            "bitcoin": "BTC-USD", "btc": "BTC-USD",
+            "ethereum": "ETH-USD", "eth": "ETH-USD",
+            "solana": "SOL-USD", "sol": "SOL-USD",
+            # Forex
+            "euro": "EURUSD=X", "eur/usd": "EURUSD=X",
+            "dollar": "DX-Y.NYB", "dxy": "DX-Y.NYB",
+            "yen": "JPY=X", "usd/jpy": "JPY=X",
+            "pound": "GBPUSD=X", "gbp": "GBPUSD=X",
+            # VIX
+            "vix": "^VIX",
+        }
+
+        # Check if the query directly mentions a known asset
+        query_lower = user_query.lower()
+        pre_detected_ticker = None
+        for name, ticker_symbol in KNOWN_TICKERS.items():
+            if name in query_lower:
+                pre_detected_ticker = ticker_symbol
+                break
+
         # --- Stage 1: Extraction of ticker/intent ---
         extraction_prompt = f"""
         Analyze this user query: "{user_query}"
 
-        Task: Extract the stock ticker symbol if a company is mentioned.
+        Task: Extract the financial ticker symbol. This can be a stock, commodity, index, crypto, or forex pair.
+        Examples:
+        - "Apple stock" → "AAPL"
+        - "Brent oil prices" → "BZ=F"
+        - "Gold price" → "GC=F"
+        - "Bitcoin" → "BTC-USD"
+        - "S&P 500" → "SPY"
 
         Output format (JSON only):
         {{"ticker": "AAPL" or null, "intent": "analysis" or "chat"}}
@@ -102,6 +143,10 @@ class AIService:
             # If extraction fails, proceed without a detected ticker
             detected_ticker = None
 
+        # Use the pre-detected ticker from the known map as a fallback
+        if not detected_ticker and pre_detected_ticker:
+            detected_ticker = pre_detected_ticker
+
         # --- Stage 2: Context enrichment (conditional on ticker) ---
         context_data = ""
         current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -113,8 +158,21 @@ class AIService:
             tech_data = finance_engine.calculate_technicals(detected_ticker)
             fund_data = finance_engine.get_ticker_data(detected_ticker)
 
-            # Recent news search
-            news_data = search_engine.search_news(f"{detected_ticker} stock news")
+            # Readable name for search queries (commodities have cryptic tickers)
+            TICKER_READABLE = {
+                "BZ=F": "Brent crude oil", "CL=F": "WTI crude oil",
+                "GC=F": "gold", "SI=F": "silver", "PL=F": "platinum",
+                "HG=F": "copper futures", "NG=F": "natural gas",
+                "ZW=F": "wheat futures", "ZC=F": "corn futures", "ZS=F": "soybean futures",
+                "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "SOL-USD": "Solana",
+                "EURUSD=X": "EUR/USD forex", "DX-Y.NYB": "US Dollar Index",
+                "JPY=X": "USD/JPY forex", "GBPUSD=X": "GBP/USD forex",
+            }
+            readable_name = TICKER_READABLE.get(detected_ticker, detected_ticker)
+
+            # Use original user query for news search (it captures intent like "iran war")
+            news_query = f"{readable_name} {user_query}" if readable_name != user_query else f"{readable_name} news"
+            news_data = search_engine.search_news(news_query)
             
             # --- EDGAR DATA INJECTION ---
             edgar_context = ""
@@ -256,8 +314,14 @@ class AIService:
         elif detected_ticker:
              context_data = f"WARNING: Could not fetch real-time data for {detected_ticker}.\n{edgar_context}"
         
-        # Append FRED context globally
-        context_data += f"\n{fred_context}"
+        # --- TRENDS (CONSUMER STRESS) CONTEXT INJECTION ---
+        trends_context = trends_engine.get_summary()
+        
+        # --- FLIGHT TRACKER CONTEXT INJECTION ---
+        flights_context = flight_tracker.get_summary()
+
+        # Append FRED, Trends, and Flights context globally
+        context_data += f"\n{fred_context}\n\n{trends_context}\n\n{flights_context}"
 
         # --- Stage 3: Final prompt assembly and generation ---
         full_prompt = f"""

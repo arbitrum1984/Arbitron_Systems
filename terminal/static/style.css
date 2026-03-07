@@ -61,6 +61,49 @@ body {
     z-index: 1000;
 }
 
+.sidebar-right {
+    width: 50px;
+    background-color: #0a0a0a;
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px 0;
+    gap: 10px;
+    z-index: 1000;
+    flex-shrink: 0;
+    overflow-y: auto;
+}
+
+/* --- Dark Scrollbar Theme --- */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Firefox scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
+
 .nav-item {
     width: 40px;
     height: 40px;
@@ -694,3 +737,31 @@ body.window-dragging .tv-widget-container::after {
 }
 
 /* --- End of core stylesheet --- */
+
+/* --- OpenSky Flight Tracker --- */
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #4CAF50;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse-green 1.5s infinite;
+    box-shadow: 0 0 6px #4CAF50;
+}
+
+@keyframes pulse-green {
+    0% {
+        opacity: 1;
+        box-shadow: 0 0 4px #4CAF50;
+    }
+
+    50% {
+        opacity: 0.4;
+        box-shadow: 0 0 12px #4CAF50;
+    }
+
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 4px #4CAF50;
+    }
+}
