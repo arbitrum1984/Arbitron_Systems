@@ -177,6 +177,23 @@ async def get_flight_data():
     return flight_tracker.get_raw_flights()
 
 
+
+@app.delete("/api/intel/clear")
+async def clear_intel_stream():
+    """Clear old INTEL_STREAM messages."""
+    from app.database.database import db
+    from app.services.rss_service import rss_service
+    
+    with db.get_connection() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM chat_messages WHERE session_id = 'INTEL_STREAM'").fetchone()[0]
+        conn.execute("DELETE FROM chat_messages WHERE session_id = 'INTEL_STREAM'")
+        conn.commit()
+        
+    rss_service._seen_hashes.clear()
+    
+    return {"deleted": count}
+
+
 # --- Frontend Endpoints ---
 
 @app.get("/")

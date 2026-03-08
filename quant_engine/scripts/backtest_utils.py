@@ -113,8 +113,15 @@ def _extract_performance_from_report(recorder):
         report = recorder.load_object("report")
         if isinstance(report, (list, tuple)) and len(report) > 0: report = report[0]
         if isinstance(report, dict):
-            for v in report.values():
-                if isinstance(v, pd.DataFrame): report = v; break
+            if "return" in report:
+                ret_data = report["return"]
+                if isinstance(ret_data, pd.Series):
+                    report = ret_data.to_frame(name="return")
+                else:
+                    report = pd.DataFrame(ret_data)
+            else:
+                for v in report.values():
+                    if isinstance(v, pd.DataFrame): report = v; break
         
         if not isinstance(report, pd.DataFrame) or report.empty: return None
 

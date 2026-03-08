@@ -17,14 +17,15 @@ SCRAPER_URL = "http://pizza_scraper:8002/status"
 class PizzaService:
     """Reads Pentagon Pizza Index data from the pizza_scraper service."""
 
+    def __init__(self):
+        self._client = httpx.AsyncClient(timeout=10)
+
     async def get_index(self) -> list:
         """Fetch the latest cached scrape results from the scraper service."""
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                r = await client.get(SCRAPER_URL)
-                if r.status_code == 200:
-                    data = r.json()
-                    return data
+            r = await self._client.get(SCRAPER_URL)
+            if r.status_code == 200:
+                return r.json()
         except Exception as e:
             logger.warning("Scraper error: %s", e)
         return []

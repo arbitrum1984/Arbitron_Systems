@@ -59,6 +59,7 @@ class TwitterService:
         self.task_id = "USERNAME/ARBI_WATCH"
         # The synchronous run endpoint returns dataset items directly.
         self.api_url = f"https://api.apify.com/v2/tasks/{self.task_id}/run-sync-get-dataset-items?token={self.token}"
+        self._client = httpx.AsyncClient(timeout=120)
 
     # Keywords that indicate content should be discarded as noise.
     GARBAGE_KEYWORDS = [
@@ -132,41 +133,40 @@ class TwitterService:
         """
         logger.info("Connecting to Apify...")
 
-        async with httpx.AsyncClient(timeout=120) as client:
-            try:
-                # Call the Apify task; note this operation may take several seconds.
-                response = await client.post(self.api_url)
+        try:
+            # Call the Apify task; note this operation may take several seconds.
+            response = await self._client.post(self.api_url)
 
-                if response.status_code != 200:
-                    logger.error(f"Apify Error: {response.status_code}")
-                    return 0
-
-                tweets = response.json()
-                processed_count = 0
-
-                for t in tweets:
-                    text = t.get('text', '')
-                    url = t.get('url', '')
-                    author = t.get('twitterUrl', '').split('/')[3] if t.get('twitterUrl') else ''
-
-                    # Stage 1: discard obvious garbage
-                    if self.is_garbage(text):
-                        logger.info(f"Skipped Garbage: {text[:30]}...")
-                        continue
-
-                    # Stage 2: detect alpha signals and persist them
-                    if self.is_alpha(text):
-                        clean_msg = f"🚨 **INTEL:** {text} \n\n🔗 [Source]({url})"
-                        add_message("INTEL_STREAM", "system", clean_msg)
-
-                        processed_count += 1
-                        logger.info(f"✅ ALPHA DETECTED: {text[:30]}...")
-
-                return processed_count
-
-            except Exception as e:
-                logger.error(f"Critical Error: {e}")
+            if response.status_code != 200:
+                logger.error(f"Apify Error: {response.status_code}")
                 return 0
+
+            tweets = response.json()
+            processed_count = 0
+
+            for t in tweets:
+                text = t.get('text', '')
+                url = t.get('url', '')
+                author = t.get('twitterUrl', '').split('/')[3] if t.get('twitterUrl') else ''
+
+                # Stage 1: discard obvious garbage
+                if self.is_garbage(text):
+                    logger.info(f"Skipped Garbage: {text[:30]}...")
+                    continue
+
+                # Stage 2: detect alpha signals and persist them
+                if self.is_alpha(text):
+                    clean_msg = f"🚨 **INTEL:** {text} \n\n🔗 [Source]({url})"
+                    add_message("INTEL_STREAM", "system", clean_msg)
+
+                    processed_count += 1
+                    logger.info(f"✅ ALPHA DETECTED: {text[:30]}...")
+
+            return processed_count
+
+        except Exception as e:
+            logger.error(f"Critical Error: {e}")
+            return 0
 
 # Инициализация
 twitter_service = TwitterService()

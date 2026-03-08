@@ -19,6 +19,9 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+# Необходимая библиотека для LightGBM (C++ OpenMP)
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm -rf /var/lib/apt/lists/*
+
 # Копируем только установленные библиотеки из builder
 COPY --from=builder /install /usr/local
 

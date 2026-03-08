@@ -128,10 +128,19 @@ def run_backtest_task(start_time: str, end_time: str):
             elif isinstance(report, pd.DataFrame):
                 is_empty = report.empty
             elif isinstance(report, dict):
-                is_empty = not report
-                
+                # Qlib sometimes returns {'return': pd.Series([...])}
+                if 'return' in report:
+                    ret_data = report['return']
+                    if isinstance(ret_data, (pd.Series, pd.DataFrame)):
+                        is_empty = ret_data.empty
+                    else:
+                        is_empty = not bool(ret_data)
+                else:
+                    is_empty = False # It has keys, assume it's valid
+                    
             if is_empty:
                 print(f"WARNING: Backtest from {start_time} to {end_time} resulted in an EMPTY report (no trades).")
+            
             if label is not None:
                 R.save_objects(report=report, positions=positions, pred_score=pred_score, label=label)
             else:

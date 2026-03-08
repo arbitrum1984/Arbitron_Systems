@@ -9,6 +9,7 @@ import asyncio
 import logging
 import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Dict, List, Optional
 from urllib.parse import quote_plus
 
@@ -36,7 +37,7 @@ TARGETS = [
     {
         "id": "cia_hq",
         "name": "DOMINO'S (LANGLEY/CIA)",
-        "search": "Domino's Pizza 1445 Laughlin Ave McLean VA",
+        "search": "Domino's Pizza Chain Bridge Rd McLean VA",
         "match": "domino",
     },
 ]
@@ -123,8 +124,15 @@ async def scrape_place(search_query: str, match_name: str = "") -> Optional[Dict
                     await results.first.click()
                 await page.wait_for_timeout(5000)
             else:
-                logger.warning("No results found.")
-                return None
+                # Google Maps may navigate directly to a place page
+                # (no search result list). Check if we're on a place page.
+                place_card = page.locator('div[role="main"][aria-label]')
+                if await place_card.count() > 0:
+                    place_name = await place_card.last.get_attribute("aria-label") or ""
+                    logger.info(f"Direct place page: «{place_name}»")
+                else:
+                    logger.warning("No results found.")
+                    return None
 
             # 4+5. Scroll and extract Popular Times
             logger.info("Scrolling + extracting …")
@@ -240,17 +248,30 @@ def parse_labels(labels: List[str]) -> Optional[Dict]:
             if 0 <= hour < 24:
                 historical[hour] = pct
 
-    now_hour = datetime.now().hour
-    if live_val is None and historical[now_hour] > 0:
+    now_hour = datetime.now(ZoneInfo("America/New_York")).hour
+
+    # If we have live data from "Сейчас", use it
+    if live_val is not None:
+        if typical_val is None:
+            typical_val = live_val
+        return {"live": live_val, "typical": typical_val, "historical": historical}
+
+    # No "Сейчас" but we have historical data for this hour
+    if historical[now_hour] > 0:
         live_val = historical[now_hour]
         typical_val = historical[now_hour]
+        return {"live": live_val, "typical": typical_val, "historical": historical}
 
-    if live_val is None:
-        return None
-    if typical_val is None:
-        typical_val = live_val
+    # No live data AND current hour shows 0% — store is likely closed.
+    # If we have ANY historical data at all, the scrape was real, 
+    # the store is just closed right now. Return live=0 (real data).
+    if sum(historical) > 0:
+        live_val = 0
+        typical_val = 0
+        return {"live": live_val, "typical": typical_val, "historical": historical}
 
-    return {"live": live_val, "typical": typical_val, "historical": historical}
+    # Truly nothing found
+    return None
 
 
 # ── Index calculation ──────────────────────────────────────────────
@@ -259,7 +280,7 @@ async def run_full_scrape() -> list:
     """Scrape all targets and return formatted results."""
     global _cached_results
     results = []
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("America/New_York"))
     current_hour = now.hour
 
     for target in TARGETS:
@@ -273,7 +294,11 @@ async def run_full_scrape() -> list:
             diff = live - t_val
             spike_pct = int((diff / t_val) * 100)
 
-            if spike_pct > 100:
+            # When the store is closed (live=0, typical=0), show CLOSED
+            if live == 0 and typical == 0:
+                status = "CLOSED"
+                spike_pct = 0
+            elif spike_pct > 100:
                 status = "CRITICAL SPIKE"
             elif spike_pct > 40:
                 status = "BUSY"

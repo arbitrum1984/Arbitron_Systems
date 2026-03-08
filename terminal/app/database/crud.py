@@ -113,6 +113,16 @@ def get_history(session_id: str) -> list:
         return [dict(row) for row in rows]
 
 
+def get_intel_messages(limit: int = 200) -> list:
+    """Return the latest INTEL_STREAM messages, newest first."""
+    with db.get_connection() as conn:
+        rows = conn.execute(
+            "SELECT role, content FROM chat_messages WHERE session_id = 'INTEL_STREAM' ORDER BY id DESC LIMIT ?",
+            (limit,)
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
 # --- Favorites (Watchlist) ---
 def add_favorite(ticker: str) -> None:
     """Add a ticker symbol to the favorites/watchlist.

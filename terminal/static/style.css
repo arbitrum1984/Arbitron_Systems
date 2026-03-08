@@ -233,6 +233,10 @@ body {
 }
 
 .input-zone {
+    height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     padding: 10px;
     background: #1a1a1a;
     border-top: 1px solid var(--border-color);

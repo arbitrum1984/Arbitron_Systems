@@ -58,6 +58,20 @@ createApp({
         const containerLogs = ref('');
         const isLogsLoading = ref(false);
 
+        // Clock State
+        const isUTC = ref(true);
+        const clockTime = ref('00:00:00');
+
+        const updateClock = () => {
+            const now = new Date();
+            if (isUTC.value) {
+                clockTime.value = now.toISOString().substring(11, 19) + ' UTC';
+            } else {
+                clockTime.value = now.toLocaleTimeString('en-US', { hour12: false }) + ' LCL';
+            }
+        };
+
+
         const fetchLogs = async () => {
             if (document.getElementById('window-logs').style.display === 'none') return;
             isLogsLoading.value = true;
@@ -77,6 +91,7 @@ createApp({
                 });
             }
         };
+
         const fetchTrendsData = async () => {
             if (document.getElementById('window-trends').style.display === 'none') return;
             isTrendsLoading.value = true;
@@ -89,10 +104,14 @@ createApp({
 
                 if (data.error) {
                     trendsError.value = data.error;
+                    isTrendsLoading.value = false;
                     return;
                 }
 
                 // Render Distress Chart
+                isTrendsLoading.value = false;
+                await nextTick();
+
                 const distressTraces = Object.keys(data.distress).map(term => ({
                     x: data.dates,
                     y: data.distress[term],
@@ -378,6 +397,7 @@ createApp({
                 if (id === 'window-logs') fetchLogs();
                 if (id === 'window-trends') fetchTrendsData();
                 if (id === 'window-flights') fetchFlightData();
+                if (id === 'window-intel') fetchIntelStream();
             } else {
                 el.style.display = 'none';
                 saveWindowLayout(id, { visible: false });
@@ -392,8 +412,46 @@ createApp({
             if (savedSession) await switchChat(savedSession);
             else createNewChat();
 
+            // Clock updates
+            setInterval(updateClock, 1000);
+            updateClock();
+
+            // Intel updates
+            fetchIntelStream();
+            setInterval(fetchIntelStream, 10000);
+
+            // Chat Resizer Logic
+            const resizer = document.getElementById('resizer');
+            const chatPanel = document.getElementById('chat-panel');
+            let isResizing = false;
+
+            if (resizer && chatPanel) {
+                resizer.addEventListener('mousedown', (e) => {
+                    isResizing = true;
+                    document.body.style.cursor = 'col-resize';
+                    document.body.classList.add('window-dragging');
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!isResizing) return;
+                    // Chat panel width is mouse cursor X - left sidebar width (50px)
+                    const newWidth = e.clientX - 50;
+                    if (newWidth >= 250 && newWidth <= 800) {
+                        chatPanel.style.width = `${newWidth}px`;
+                    }
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (isResizing) {
+                        isResizing = false;
+                        document.body.style.cursor = 'default';
+                        document.body.classList.remove('window-dragging');
+                    }
+                });
+            }
+
             nextTick(() => {
-                ['window-intel', 'window-3d', 'window-pizza', 'window-edgar', 'window-fred', 'window-tradebot', 'window-logs', 'window-trends', 'window-flights'].forEach(id => {
+                ['window-intel', 'window-3d', 'window-pizza', 'window-edgar', 'window-fred', 'window-tradebot', 'window-logs', 'window-trends', 'window-flights', 'window-clock'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) setupWindow(el);
                 });
@@ -405,11 +463,18 @@ createApp({
                 loadActiveCharts(); // Restore open charts on load
             });
 
+            // Set interval to auto-update logs if window is open
+            setInterval(() => {
+                if (document.getElementById('window-logs').style.display !== 'none' && !isLogsLoading.value) {
+                    fetchLogs();
+                }
+            }, 3000);
+
             await fetchIntelStream();
-            setInterval(fetchIntelStream, 3000);
+            setInterval(fetchIntelStream, 30000);
 
             await fetchPizzaData();
-            setInterval(fetchPizzaData, 5000);
+            setInterval(fetchPizzaData, 60000);
 
             setInterval(fetchBacktestList, 15000);
         });
@@ -464,14 +529,23 @@ createApp({
          * @returns {Promise<void>}
          */
         const fetchPizzaData = async () => {
+            if (document.getElementById('window-pizza').style.display === 'none') return;
             try {
-                // Стучимся на новый роут, который ты добавил в main.py
                 const r = await fetch('/api/pizza');
                 if (r.ok) {
                     pizzaData.value = await r.json();
                 }
+            } catch (e) { console.error(e); }
+        };
+
+        const clearIntelStream = async () => {
+            try {
+                const r = await fetch('/api/intel/clear', { method: 'DELETE' });
+                if (r.ok) {
+                    intelMessages.value = [];
+                }
             } catch (e) {
-                console.error("Pizza fetch error:", e);
+                console.error("Failed to clear intel feed:", e);
             }
         };
 
@@ -1175,7 +1249,8 @@ createApp({
         return {
             input, messages, favorites, chatSessions, currentChatId, isLoading, is3DLoaded,
             showVoice, showFavorites, showSettings, newFav, voiceStatusText, selected3DTicker,
-            intelMessages, pizzaData,
+            isUTC, clockTime,
+            intelMessages, pizzaData, clearIntelStream,
             savedCompanies, selectedEdgarTicker, isEdgarLoading, newEdgarTicker, activeEdgarCharts, fetchSavedCompanies, loadEdgarData, searchEdgarTicker,
             savedFredSeries, newFredSeries, currentFredSeries, activeFredCharts, isFredLoading, fetchSavedFredSeries, addFredSeries, loadFredSeries, // FRED Exports
             openTickerChart, // Simplified Watchlist Export

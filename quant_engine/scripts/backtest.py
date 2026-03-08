@@ -6,32 +6,24 @@ import pandas as pd
 def run_backtest(prediction_score, start_time, end_time):
     print(f"Запуск бэктеста с {start_time} по {end_time}...")
     
-    # Критично: Приводим тикеры к нижнему регистру для соответствия бинарным данным.
-    if isinstance(prediction_score.index, pd.MultiIndex):
-        level_names = [n.lower() if n else '' for n in prediction_score.index.names]
-        if 'instrument' in level_names:
-            idx = level_names.index('instrument')
-            prediction_score.index = prediction_score.index.set_levels(
-                prediction_score.index.levels[idx].str.lower(),
-                level=idx
-            )
-        elif len(prediction_score.index.levels) > 1:
-            # Fallback: usually level 1 is instrument
-            prediction_score.index = prediction_score.index.set_levels(
-                prediction_score.index.levels[1].str.lower(),
-                level=1
-            )
+    # 1. Устранение Look-Ahead Bias (Сдвиг сигнала)
+    # Ручной сдвиг через Pandas (shift) ломает внутренний календарь Qlib и приводит к 0 сделок.
+    # Вместо этого мы будем использовать нативные настройки Qlib Executor/Strategy.
+    # Prediction Score передается "как есть" с оригинальными датами.
     
+    # 2. Оставляем тикеры в оригинальном регистре.
+    # Ранее мы принудительно делали .lower(), что ломало US тикеры (aapl вместо AAPL),
+    # так как они скачивались из yfinance в верхнем регистре.
 
     # Стратегия: Top X, продаем если выпадает из топа.
     strategy_config = {
         "class": "TopkDropoutStrategy",
         "module_path": "qlib.contrib.strategy",
         "kwargs": {
-            "topk": 5,
-            "n_drop": 2,
+            "topk": 10,
+            "n_drop": 5,
             "signal": prediction_score,
-            "hold_thresh": 5,
+            "hold_thresh": 10,
         }
     }
 
@@ -45,7 +37,7 @@ def run_backtest(prediction_score, start_time, end_time):
         },
     }
 
-    # ВАЖНО: Указываем benchmark='sh000300' (мы его скачали в get_data.py)
+    # ВАЖНО: Указываем benchmark='sh000300' 
     report_normal, positions = qlib_backtest(
         strategy=strategy_config,
         executor=executor_config,
@@ -54,8 +46,8 @@ def run_backtest(prediction_score, start_time, end_time):
         account=100_000_000,
         benchmark=None, 
         exchange_kwargs={
-            "limit_threshold": 0.095,
-            "deal_price": "open",
+            "limit_threshold": 0.15,
+            "deal_price": "close",
             "open_cost": 0.0015,
             "close_cost": 0.0015,
             "min_cost": 5,

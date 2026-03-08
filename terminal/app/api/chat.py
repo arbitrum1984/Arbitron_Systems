@@ -101,6 +101,8 @@ async def get_messages(id: str):
     Returns:
         list: A sequence of message objects in chronological order.
     """
+    if id == "INTEL_STREAM":
+        return crud.get_intel_messages()
     return crud.get_history(id)
 
 
